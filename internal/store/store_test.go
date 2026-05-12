@@ -54,6 +54,9 @@ func TestStoreCreatesOrdersAndSubscriptions(t *testing.T) {
 	if len(subscriptions) < 2 {
 		t.Fatalf("expected seeded and created subscriptions, got %d", len(subscriptions))
 	}
+	if err := s.CreateSubscription(context.Background(), user.ID, 1, 6000000); err == nil {
+		t.Fatal("subscription above remaining capacity should fail")
+	}
 }
 
 func TestAdvanceTransactionCreatesSettledHolding(t *testing.T) {
@@ -165,6 +168,86 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	}
 	if len(tickets) < 2 {
 		t.Fatalf("expected seeded and created tickets, got %d", len(tickets))
+	}
+}
+
+func TestSubscriptionActivationAllocatesSPVUnits(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.CreateDeal(context.Background(), admin.ID, domain.Deal{
+		CompanyID:       1,
+		Name:            "Tiny SPV",
+		DealType:        "spv",
+		Structure:       "Capacity test SPV",
+		MinSubscription: 1000,
+		TargetSize:      1000,
+		FeeDescription:  "0%",
+	}); err != nil {
+		t.Fatalf("create deal: %v", err)
+	}
+	deals, err := s.Deals()
+	if err != nil {
+		t.Fatalf("deals: %v", err)
+	}
+	var dealID int64
+	for _, deal := range deals {
+		if deal.Name == "Tiny SPV" {
+			dealID = deal.ID
+		}
+	}
+	if dealID == 0 {
+		t.Fatal("expected tiny spv deal")
+	}
+	if err := s.CreateSubscription(context.Background(), investor.ID, dealID, 1000); err != nil {
+		t.Fatalf("create subscription: %v", err)
+	}
+	subscriptions, err := s.Subscriptions(admin)
+	if err != nil {
+		t.Fatalf("subscriptions: %v", err)
+	}
+	var subscriptionID int64
+	for _, subscription := range subscriptions {
+		if subscription.DealName == "Tiny SPV" {
+			subscriptionID = subscription.ID
+		}
+	}
+	if subscriptionID == 0 {
+		t.Fatal("expected subscription for tiny spv")
+	}
+	for i := 0; i < 3; i++ {
+		if err := s.AdvanceSubscription(context.Background(), admin.ID, subscriptionID); err != nil {
+			t.Fatalf("advance subscription step %d: %v", i, err)
+		}
+	}
+	spvs, err := s.SPVVehicles()
+	if err != nil {
+		t.Fatalf("spv vehicles: %v", err)
+	}
+	var issuedUnits int64
+	for _, spv := range spvs {
+		if spv.DealName == "Tiny SPV" {
+			issuedUnits = spv.IssuedUnits
+		}
+	}
+	if issuedUnits != 10 {
+		t.Fatalf("issued units got %d, want 10", issuedUnits)
+	}
+	closedDeal, err := s.Deal(dealID)
+	if err != nil {
+		t.Fatalf("deal: %v", err)
+	}
+	if closedDeal.Status != "closed" {
+		t.Fatalf("deal status got %s, want closed", closedDeal.Status)
+	}
+	if err := s.CreateSubscription(context.Background(), investor.ID, dealID, 1000); err == nil {
+		t.Fatal("closed deal should reject new subscriptions")
 	}
 }
 

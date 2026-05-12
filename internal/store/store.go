@@ -833,7 +833,7 @@ func executionStatusesForStage(stage domain.TransactionStage) (string, string, s
 }
 
 func (s *Store) Deals() ([]domain.Deal, error) {
-	rows, err := s.db.Query(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0)
+	rows, err := s.db.Query(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0), d.target_size - COALESCE(SUM(s.amount), 0)
 		FROM deals d JOIN companies c ON c.id = d.company_id
 		LEFT JOIN subscriptions s ON s.deal_id = d.id AND s.status != 'cancelled'
 		GROUP BY d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status
@@ -845,7 +845,7 @@ func (s *Store) Deals() ([]domain.Deal, error) {
 	var deals []domain.Deal
 	for rows.Next() {
 		var deal domain.Deal
-		if err := rows.Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount); err != nil {
+		if err := rows.Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount, &deal.RemainingAmount); err != nil {
 			return nil, err
 		}
 		deals = append(deals, deal)
@@ -855,12 +855,12 @@ func (s *Store) Deals() ([]domain.Deal, error) {
 
 func (s *Store) Deal(id int64) (domain.Deal, error) {
 	var deal domain.Deal
-	err := s.db.QueryRow(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0)
+	err := s.db.QueryRow(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0), d.target_size - COALESCE(SUM(s.amount), 0)
 		FROM deals d JOIN companies c ON c.id = d.company_id
 		LEFT JOIN subscriptions s ON s.deal_id = d.id AND s.status != 'cancelled'
 		WHERE d.id = ?
 		GROUP BY d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status`, id).
-		Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount)
+		Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount, &deal.RemainingAmount)
 	return deal, err
 }
 
@@ -921,6 +921,12 @@ func (s *Store) CreateSubscription(ctx context.Context, investorID, dealID int64
 	if err := domain.ValidateSubscription(amount, deal.MinSubscription); err != nil {
 		return err
 	}
+	if deal.Status != "open" {
+		return fmt.Errorf("deal is not open")
+	}
+	if amount > deal.RemainingAmount {
+		return fmt.Errorf("subscription amount exceeds remaining deal capacity")
+	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -947,10 +953,12 @@ func (s *Store) AdvanceSubscription(ctx context.Context, actorID, subscriptionID
 
 	var status domain.SubscriptionStatus
 	var investorID int64
+	var dealID int64
 	var dealName string
 	var amount float64
-	err = tx.QueryRowContext(ctx, `SELECT s.status, s.investor_id, d.name, s.amount FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE s.id = ?`, subscriptionID).
-		Scan(&status, &investorID, &dealName, &amount)
+	var targetSize float64
+	err = tx.QueryRowContext(ctx, `SELECT s.status, s.investor_id, s.deal_id, d.name, s.amount, d.target_size FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE s.id = ?`, subscriptionID).
+		Scan(&status, &investorID, &dealID, &dealName, &amount, &targetSize)
 	if err != nil {
 		return err
 	}
@@ -964,6 +972,22 @@ func (s *Store) AdvanceSubscription(ctx context.Context, actorID, subscriptionID
 	if next == domain.SubscriptionActive {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO holdings (user_id, company_name, source_type, cost, status) VALUES (?, ?, 'spv', ?, ?)`, investorID, dealName, amount, string(next)); err != nil {
 			return err
+		}
+		units := int64(amount / 100)
+		if units < 1 {
+			units = 1
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE spv_vehicles SET issued_units = issued_units + ? WHERE deal_id = ?`, units, dealID); err != nil {
+			return err
+		}
+		var activeAmount float64
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount), 0) FROM subscriptions WHERE deal_id = ? AND status = ?`, dealID, string(domain.SubscriptionActive)).Scan(&activeAmount); err != nil {
+			return err
+		}
+		if activeAmount >= targetSize {
+			if _, err := tx.ExecContext(ctx, `UPDATE deals SET status = 'closed' WHERE id = ?`, dealID); err != nil {
+				return err
+			}
 		}
 	}
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {

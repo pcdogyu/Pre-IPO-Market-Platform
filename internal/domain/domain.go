@@ -141,6 +141,7 @@ type Deal struct {
 	FeeDescription   string
 	Status           string
 	SubscribedAmount float64
+	RemainingAmount  float64
 }
 
 type Subscription struct {

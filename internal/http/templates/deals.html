@@ -12,13 +12,13 @@
         <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{.DealType}} · {{.Status}}</span></div>
         <p>{{.CompanyName}}</p>
         <p class="muted">{{.Structure}}</p>
-        <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>Subscribed</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div></dl>
+        <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>Subscribed</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div><div><dt>Remaining</dt><dd>{{money .RemainingAmount}}</dd></div></dl>
         <p class="muted">{{t $.Lang "label.fees"}}: {{.FeeDescription}}</p>
-        {{if canBuy $.User}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form"><input name="amount" type="number" min="{{.MinSubscription}}" value="{{printf "%.0f" .MinSubscription}}"><button>{{t $.Lang "action.subscribe"}}</button></form>{{end}}
+        {{if and (canBuy $.User) (eq .Status "open")}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form"><input name="amount" type="number" min="{{.MinSubscription}}" max="{{.RemainingAmount}}" value="{{printf "%.0f" .MinSubscription}}"><button>{{t $.Lang "action.subscribe"}}</button></form>{{end}}
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>
-    <section><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Jurisdiction</th><th>Class</th><th>Units</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Jurisdiction}}</td><td>{{.ShareClass}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Jurisdiction</th><th>Class</th><th>Units</th><th>Utilization</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Jurisdiction}}</td><td>{{.ShareClass}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td><td>{{percent .IssuedUnits .TotalUnits}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section><h2>Subscriptions</h2><table><thead><tr><th>Deal</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
   </main>
 </body>

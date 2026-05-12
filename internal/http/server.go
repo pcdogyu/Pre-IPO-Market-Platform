@@ -788,11 +788,28 @@ func statusLabel(status any) string {
 	return strings.ReplaceAll(fmt.Sprint(status), "_", " ")
 }
 
-func percent(value, total float64) string {
-	if total <= 0 {
+func percent(value, total any) string {
+	valueFloat := toFloat(value)
+	totalFloat := toFloat(total)
+	if totalFloat <= 0 {
 		return "0%"
 	}
-	return fmt.Sprintf("%.0f%%", value/total*100)
+	return fmt.Sprintf("%.0f%%", valueFloat/totalFloat*100)
+}
+
+func toFloat(value any) float64 {
+	switch v := value.(type) {
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	default:
+		return 0
+	}
 }
 
 func urlSafe(v string) string {

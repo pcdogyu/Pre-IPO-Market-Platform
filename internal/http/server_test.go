@@ -156,6 +156,40 @@ func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 	}
 }
 
+func TestUserCanManageWatchlist(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor@demo.local")
+	form := url.Values{"company_id": {"3"}}
+	req := httptest.NewRequest(http.MethodPost, "/watchlist/add", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("add watchlist status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "QuantumPay") {
+		t.Fatal("dashboard should render watched company")
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/watchlist/remove", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("remove watchlist status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
 func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin@demo.local")

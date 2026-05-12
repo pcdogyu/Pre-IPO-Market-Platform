@@ -171,6 +171,59 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	}
 }
 
+func TestWatchlistWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	institution, err := s.Authenticate("institution@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate institution: %v", err)
+	}
+	if err := s.AddToWatchlist(context.Background(), institution.ID, 3); err != nil {
+		t.Fatalf("add watchlist: %v", err)
+	}
+	watched, err := s.WatchlistMap(institution.ID)
+	if err != nil {
+		t.Fatalf("watchlist map: %v", err)
+	}
+	if !watched[3] {
+		t.Fatal("expected company in watchlist")
+	}
+	if err := s.PublishCompanyUpdate(context.Background(), admin.ID, domain.CompanyUpdate{
+		CompanyID:  3,
+		UpdateType: "liquidity",
+		Title:      "QuantumPay tender watch",
+		Body:       "Potential tender offer moved to watchlist.",
+	}); err != nil {
+		t.Fatalf("publish company update: %v", err)
+	}
+	notifications, err := s.Notifications(institution.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	var notified bool
+	for _, notification := range notifications {
+		if notification.Title == "Company update published" && notification.Body == "QuantumPay: QuantumPay tender watch" {
+			notified = true
+		}
+	}
+	if !notified {
+		t.Fatal("watchlist user should receive company update notification")
+	}
+	if err := s.RemoveFromWatchlist(context.Background(), institution.ID, 3); err != nil {
+		t.Fatalf("remove watchlist: %v", err)
+	}
+	watched, err = s.WatchlistMap(institution.ID)
+	if err != nil {
+		t.Fatalf("watchlist map after remove: %v", err)
+	}
+	if watched[3] {
+		t.Fatal("company should be removed from watchlist")
+	}
+}
+
 func TestSubscriptionActivationAllocatesSPVUnits(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin@demo.local", "demo123")

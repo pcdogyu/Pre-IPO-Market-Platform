@@ -32,6 +32,8 @@ type pageData struct {
 	Error          string
 	Companies      []domain.Company
 	Company        domain.Company
+	Watchlist      []domain.WatchlistItem
+	WatchlistMap   map[int64]bool
 	SellOrders     []domain.SellOrder
 	BuyInterests   []domain.BuyInterest
 	Transactions   []domain.Transaction
@@ -92,6 +94,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/dashboard", s.requireAuth(s.dashboard))
 	mux.HandleFunc("/companies", s.requireAuth(s.companies))
 	mux.HandleFunc("/companies/", s.requireAuth(s.companyDetail))
+	mux.HandleFunc("/watchlist/add", s.requireAuth(s.addWatchlist))
+	mux.HandleFunc("/watchlist/remove", s.requireAuth(s.removeWatchlist))
 	mux.HandleFunc("/market/orders", s.requireAuth(s.market))
 	mux.HandleFunc("/orders/sell", s.requireAuth(s.createSellOrder))
 	mux.HandleFunc("/orders/buy-interest", s.requireAuth(s.createBuyInterest))
@@ -223,14 +227,16 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 	transactions, _ := s.store.Transactions(user)
 	deals, _ := s.store.Deals()
 	holdings, _ := s.store.Holdings(user.ID)
+	watchlist, _ := s.store.Watchlist(user.ID)
 	notifications, _ := s.store.Notifications(user.ID, 8)
 	stats := map[string]int{
 		"companies":    len(companies),
 		"transactions": len(transactions),
 		"deals":        len(deals),
 		"holdings":     len(holdings),
+		"watchlist":    len(watchlist),
 	}
-	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Transactions: transactions, Deals: deals, Holdings: holdings, Notifications: notifications, Stats: stats})
+	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, Transactions: transactions, Deals: deals, Holdings: holdings, Notifications: notifications, Stats: stats})
 }
 
 func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -267,7 +273,8 @@ func (s *Server) markAllNotificationsRead(w http.ResponseWriter, r *http.Request
 
 func (s *Server) companies(w http.ResponseWriter, r *http.Request, user domain.User) {
 	companies, err := s.store.Companies()
-	data := pageData{Title: "Companies", User: user, Lang: user.Language, Companies: companies}
+	watched, _ := s.store.WatchlistMap(user.ID)
+	data := pageData{Title: "Companies", User: user, Lang: user.Language, Companies: companies, WatchlistMap: watched}
 	if err != nil {
 		data.Error = err.Error()
 	}
@@ -317,7 +324,38 @@ func (s *Server) companyDetail(w http.ResponseWriter, r *http.Request, user doma
 		return
 	}
 	updates, _ := s.store.CompanyUpdates(company.ID, 10)
-	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates})
+	watched, _ := s.store.WatchlistMap(user.ID)
+	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, WatchlistMap: watched})
+}
+
+func (s *Server) addWatchlist(w http.ResponseWriter, r *http.Request, user domain.User) {
+	s.changeWatchlist(w, r, user, true)
+}
+
+func (s *Server) removeWatchlist(w http.ResponseWriter, r *http.Request, user domain.User) {
+	s.changeWatchlist(w, r, user, false)
+}
+
+func (s *Server) changeWatchlist(w http.ResponseWriter, r *http.Request, user domain.User, add bool) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/companies?error=form", http.StatusSeeOther)
+		return
+	}
+	companyID, _ := strconv.ParseInt(r.FormValue("company_id"), 10, 64)
+	if add {
+		_ = s.store.AddToWatchlist(r.Context(), user.ID, companyID)
+	} else {
+		_ = s.store.RemoveFromWatchlist(r.Context(), user.ID, companyID)
+	}
+	redirect := r.Header.Get("Referer")
+	if redirect == "" {
+		redirect = "/companies"
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User) {

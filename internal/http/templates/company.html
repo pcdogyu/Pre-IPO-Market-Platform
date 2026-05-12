@@ -7,7 +7,7 @@
     <section class="page-head"><div><p class="eyebrow">{{.Company.Industry}}</p><h1>{{.Company.Name}}</h1></div><span class="badge">{{.Company.TradableStatus}}</span></section>
     <p class="lead">{{.Company.Description}}</p>
     <dl class="facts wide"><div><dt>{{t .Lang "label.valuation"}}</dt><dd>{{.Company.Valuation}}</dd></div><div><dt>Share Price</dt><dd>{{money .Company.SharePrice}}</dd></div><div><dt>{{t .Lang "label.round"}}</dt><dd>{{.Company.FundingRound}}</dd></div><div><dt>{{t .Lang "label.status"}}</dt><dd>{{.Company.TradableStatus}}</dd></div><div><dt>Transfer Restrictions</dt><dd>{{.Company.TransferRestrictions}}</dd></div></dl>
-    <div class="actions"><a class="button" href="/market/orders">{{t .Lang "nav.market"}}</a><a class="button secondary" href="/deals">{{t .Lang "nav.deals"}}</a></div>
+    <div class="actions"><a class="button" href="/market/orders">{{t .Lang "nav.market"}}</a><a class="button secondary" href="/deals">{{t .Lang "nav.deals"}}</a>{{if index .WatchlistMap .Company.ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.Company.ID}}"><button class="secondary">Unwatch</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.Company.ID}}"><button>Watch</button></form>{{end}}</div>
     <section>
       <h2>Company Updates</h2>
       <table><thead><tr><th>Type</th><th>Title</th><th>Summary</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>

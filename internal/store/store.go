@@ -77,6 +77,13 @@ func (s *Store) Migrate() error {
 			body TEXT NOT NULL,
 			published_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS watchlists (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+			added_at TEXT NOT NULL,
+			UNIQUE(user_id, company_id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS sell_orders (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			seller_id INTEGER NOT NULL REFERENCES users(id),
@@ -365,6 +372,11 @@ func (s *Store) SeedDemoData() error {
 		(2, 'financing', 'HelioGrid strategic round watch', 'A potential strategic financing could reset valuation before the next reporting cycle.', ?)`, time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(-24*time.Hour).Format(time.RFC3339)); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(`INSERT INTO watchlists (user_id, company_id, added_at) VALUES
+		(2, 1, ?),
+		(4, 2, ?)`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-36*time.Hour).Format(time.RFC3339)); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES
 		(1, 'HelioGrid SPV I LLC', 'Delaware', 'PreIPO Demo GP LLC', 'Class A', 500000, 30000),
 		(2, 'NeuralBridge Growth Basket LP', 'Cayman Islands', 'PreIPO Demo GP LLC', 'Limited Partner Units', 800000, 0)`); err != nil {
@@ -582,6 +594,73 @@ func (s *Store) CreateCompany(ctx context.Context, actorID int64, company domain
 	return tx.Commit()
 }
 
+func (s *Store) Watchlist(userID int64) ([]domain.WatchlistItem, error) {
+	rows, err := s.db.Query(`SELECT w.id, w.user_id, w.company_id, c.name, c.industry, c.valuation, c.tradable_status, w.added_at
+		FROM watchlists w JOIN companies c ON c.id = w.company_id
+		WHERE w.user_id = ? ORDER BY w.id DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []domain.WatchlistItem
+	for rows.Next() {
+		var item domain.WatchlistItem
+		if err := rows.Scan(&item.ID, &item.UserID, &item.CompanyID, &item.CompanyName, &item.Industry, &item.Valuation, &item.TradableStatus, &item.AddedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) WatchlistMap(userID int64) (map[int64]bool, error) {
+	items, err := s.Watchlist(userID)
+	if err != nil {
+		return nil, err
+	}
+	watched := make(map[int64]bool, len(items))
+	for _, item := range items {
+		watched[item.CompanyID] = true
+	}
+	return watched, nil
+}
+
+func (s *Store) AddToWatchlist(ctx context.Context, userID, companyID int64) error {
+	if userID <= 0 || companyID <= 0 {
+		return fmt.Errorf("user and company are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO watchlists (user_id, company_id, added_at) VALUES (?, ?, ?)`, userID, companyID, time.Now().Format(time.RFC3339)); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, userID, "add_watchlist", "company", companyID, "company added to watchlist"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) RemoveFromWatchlist(ctx context.Context, userID, companyID int64) error {
+	if userID <= 0 || companyID <= 0 {
+		return fmt.Errorf("user and company are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM watchlists WHERE user_id = ? AND company_id = ?`, userID, companyID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, userID, "remove_watchlist", "company", companyID, "company removed from watchlist"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) CompanyUpdates(companyID int64, limit int) ([]domain.CompanyUpdate, error) {
 	if limit <= 0 {
 		limit = 20
@@ -645,10 +724,11 @@ func (s *Store) PublishCompanyUpdate(ctx context.Context, actorID int64, update 
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT user_id FROM (
 			SELECT h.user_id FROM holdings h WHERE h.company_name = ?
+			UNION SELECT w.user_id FROM watchlists w WHERE w.company_id = ?
 			UNION SELECT s.investor_id FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE d.company_id = ? AND s.status != 'cancelled'
 			UNION SELECT buyer_id FROM transactions WHERE company_id = ?
 			UNION SELECT seller_id FROM transactions WHERE company_id = ?
-		) ORDER BY user_id`, companyName, update.CompanyID, update.CompanyID, update.CompanyID)
+		) ORDER BY user_id`, companyName, update.CompanyID, update.CompanyID, update.CompanyID, update.CompanyID)
 	if err != nil {
 		return err
 	}

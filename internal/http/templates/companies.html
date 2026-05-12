@@ -11,7 +11,7 @@
         <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{.TradableStatus}}</span></div>
         <p>{{.Description}}</p>
         <dl class="facts"><div><dt>{{t $.Lang "label.industry"}}</dt><dd>{{.Industry}}</dd></div><div><dt>{{t $.Lang "label.valuation"}}</dt><dd>{{.Valuation}}</dd></div><div><dt>Share Price</dt><dd>{{money .SharePrice}}</dd></div><div><dt>{{t $.Lang "label.round"}}</dt><dd>{{.FundingRound}}</dd></div><div><dt>Restrictions</dt><dd>{{.TransferRestrictions}}</dd></div></dl>
-        <a class="button secondary" href="/companies/{{.ID}}">View</a>
+        <div class="actions"><a class="button secondary" href="/companies/{{.ID}}">View</a>{{if index $.WatchlistMap .ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.ID}}"><button class="secondary">Unwatch</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.ID}}"><button>Watch</button></form>{{end}}</div>
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>

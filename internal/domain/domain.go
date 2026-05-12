@@ -96,6 +96,17 @@ type CompanyUpdate struct {
 	PublishedAt string
 }
 
+type WatchlistItem struct {
+	ID             int64
+	UserID         int64
+	CompanyID      int64
+	CompanyName    string
+	Industry       string
+	Valuation      string
+	TradableStatus string
+	AddedAt        string
+}
+
 type SellOrder struct {
 	ID          int64
 	SellerID    int64

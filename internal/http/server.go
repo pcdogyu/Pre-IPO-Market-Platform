@@ -46,6 +46,7 @@ type pageData struct {
 	ExitEvents    []domain.ExitEvent
 	Distributions []domain.Distribution
 	Reports       []domain.InvestorReport
+	Notifications []domain.Notification
 	RiskAlerts    []domain.RiskAlert
 	Tickets       []domain.SupportTicket
 	PendingUsers  []domain.User
@@ -82,6 +83,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/auth/login", s.login)
 	mux.HandleFunc("/logout", s.logout)
 	mux.HandleFunc("/language", s.requireAuth(s.language))
+	mux.HandleFunc("/notifications/", s.requireAuth(s.markNotificationRead))
 	mux.HandleFunc("/dashboard", s.requireAuth(s.dashboard))
 	mux.HandleFunc("/companies", s.requireAuth(s.companies))
 	mux.HandleFunc("/companies/", s.requireAuth(s.companyDetail))
@@ -209,13 +211,33 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 	transactions, _ := s.store.Transactions(user)
 	deals, _ := s.store.Deals()
 	holdings, _ := s.store.Holdings(user.ID)
+	notifications, _ := s.store.Notifications(user.ID, 8)
 	stats := map[string]int{
 		"companies":    len(companies),
 		"transactions": len(transactions),
 		"deals":        len(deals),
 		"holdings":     len(holdings),
 	}
-	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Transactions: transactions, Deals: deals, Holdings: holdings, Stats: stats})
+	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Transactions: transactions, Deals: deals, Holdings: holdings, Notifications: notifications, Stats: stats})
+}
+
+func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/read") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/notifications/"), "/read")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = s.store.MarkNotificationRead(r.Context(), user.ID, id)
+	redirect := r.Header.Get("Referer")
+	if redirect == "" {
+		redirect = "/dashboard"
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 func (s *Server) companies(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -430,7 +452,8 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	distributions, _ := s.store.Distributions(user.ID)
 	reports, _ := s.store.Reports(user.ID)
 	tickets, _ := s.store.SupportTickets(user.ID, false)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets})
+	notifications, _ := s.store.Notifications(user.ID, 8)
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets, Notifications: notifications})
 }
 
 func (s *Server) createSupportTicket(w http.ResponseWriter, r *http.Request, user domain.User) {

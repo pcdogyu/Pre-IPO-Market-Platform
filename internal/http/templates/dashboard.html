@@ -30,6 +30,12 @@
       <div class="metric"><span>{{t .Lang "nav.deals"}}</span><strong>{{index .Stats "deals"}}</strong></div>
       <div class="metric"><span>{{t .Lang "nav.portfolio"}}</span><strong>{{index .Stats "holdings"}}</strong></div>
     </section>
+    <section>
+      <h2>Notifications</h2>
+      <table><thead><tr><th>Title</th><th>Message</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
+        {{range .Notifications}}<tr><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.Status}}</td><td>{{if eq .Status "unread"}}<form method="post" action="/notifications/{{.ID}}/read"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
+      </tbody></table>
+    </section>
     <section class="grid two">
       <div>
         <h2>{{t .Lang "companies.title"}}</h2>

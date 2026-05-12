@@ -414,3 +414,44 @@ func TestExecutionDocumentWorkflow(t *testing.T) {
 		t.Fatal("investor should see documents for their transaction")
 	}
 }
+
+func TestNotificationWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.AdvanceTransaction(context.Background(), admin.ID, 1); err != nil {
+		t.Fatalf("advance transaction: %v", err)
+	}
+	notifications, err := s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	var notificationID int64
+	for _, notification := range notifications {
+		if notification.Title == "Transaction status updated" && notification.Status == "unread" {
+			notificationID = notification.ID
+			break
+		}
+	}
+	if notificationID == 0 {
+		t.Fatal("expected unread transaction notification")
+	}
+	if err := s.MarkNotificationRead(context.Background(), investor.ID, notificationID); err != nil {
+		t.Fatalf("mark notification read: %v", err)
+	}
+	notifications, err = s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications after read: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.ID == notificationID && notification.Status != "read" {
+			t.Fatalf("notification status got %s, want read", notification.Status)
+		}
+	}
+}

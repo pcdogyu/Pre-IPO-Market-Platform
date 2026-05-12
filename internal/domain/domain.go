@@ -221,6 +221,15 @@ type InvestorReport struct {
 	Status     string
 }
 
+type Notification struct {
+	ID        int64
+	UserID    int64
+	Title     string
+	Body      string
+	Status    string
+	CreatedAt string
+}
+
 type RiskAlert struct {
 	ID        int64
 	Severity  string

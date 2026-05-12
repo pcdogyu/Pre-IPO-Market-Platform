@@ -246,3 +246,27 @@ func TestAdminCanManageExecutionDocuments(t *testing.T) {
 		t.Fatalf("advance document status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 }
+
+func TestUserCanMarkNotificationRead(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor@demo.local")
+
+	req := httptest.NewRequest(http.MethodPost, "/notifications/1/read", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("notification read status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "Notifications") {
+		t.Fatal("dashboard should render notifications")
+	}
+}

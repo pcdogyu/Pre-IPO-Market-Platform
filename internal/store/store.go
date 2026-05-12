@@ -191,6 +191,14 @@ func (s *Store) Migrate() error {
 			period TEXT NOT NULL,
 			status TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS notifications (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id),
+			title TEXT NOT NULL,
+			body TEXT NOT NULL,
+			status TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS risk_alerts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			severity TEXT NOT NULL,
@@ -339,6 +347,11 @@ func (s *Store) SeedDemoData() error {
 	if _, err := tx.Exec(`INSERT INTO investor_reports (user_id, report_type, title, period, status) VALUES
 		(2, 'portfolio', 'Q1 2026 Portfolio Statement', '2026-Q1', 'available'),
 		(2, 'tax', '2025 Tax Package Placeholder', '2025', 'pending')`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO notifications (user_id, title, body, status, created_at) VALUES
+		(2, 'Welcome to Pre-IPO MVP', 'Your demo investor account is ready.', 'unread', ?),
+		(3, 'Seller workflow ready', 'You can submit sell orders and track execution.', 'unread', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO risk_alerts (severity, status, subject, note, created_at) VALUES
@@ -764,10 +777,11 @@ func (s *Store) AdvanceTransaction(ctx context.Context, actorID, transactionID i
 
 	var stage domain.TransactionStage
 	var buyerID int64
+	var sellerID int64
 	var companyName string
 	var cost float64
-	err = tx.QueryRowContext(ctx, `SELECT t.stage, t.buyer_id, c.name, t.shares * t.price FROM transactions t JOIN companies c ON c.id = t.company_id WHERE t.id = ?`, transactionID).
-		Scan(&stage, &buyerID, &companyName, &cost)
+	err = tx.QueryRowContext(ctx, `SELECT t.stage, t.buyer_id, t.seller_id, c.name, t.shares * t.price FROM transactions t JOIN companies c ON c.id = t.company_id WHERE t.id = ?`, transactionID).
+		Scan(&stage, &buyerID, &sellerID, &companyName, &cost)
 	if err != nil {
 		return err
 	}
@@ -788,6 +802,13 @@ func (s *Store) AdvanceTransaction(ctx context.Context, actorID, transactionID i
 	if err := insertAudit(ctx, tx, actorID, "advance_transaction", "transaction", transactionID, fmt.Sprintf("%s -> %s", stage, next)); err != nil {
 		return err
 	}
+	notificationBody := fmt.Sprintf("%s transaction moved from %s to %s", companyName, stage, next)
+	if err := insertNotification(ctx, tx, buyerID, "Transaction status updated", notificationBody); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Transaction status updated", notificationBody); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -799,7 +820,9 @@ func (s *Store) CancelTransaction(ctx context.Context, actorID, transactionID in
 	defer tx.Rollback()
 
 	var stage domain.TransactionStage
-	if err := tx.QueryRowContext(ctx, `SELECT stage FROM transactions WHERE id = ?`, transactionID).Scan(&stage); err != nil {
+	var buyerID, sellerID int64
+	var companyName string
+	if err := tx.QueryRowContext(ctx, `SELECT t.stage, t.buyer_id, t.seller_id, c.name FROM transactions t JOIN companies c ON c.id = t.company_id WHERE t.id = ?`, transactionID).Scan(&stage, &buyerID, &sellerID, &companyName); err != nil {
 		return err
 	}
 	if stage == domain.StageSettled || stage == domain.StageCancelled {
@@ -810,6 +833,13 @@ func (s *Store) CancelTransaction(ctx context.Context, actorID, transactionID in
 		return err
 	}
 	if err := insertAudit(ctx, tx, actorID, "cancel_transaction", "transaction", transactionID, fmt.Sprintf("%s -> %s", stage, domain.StageCancelled)); err != nil {
+		return err
+	}
+	body := fmt.Sprintf("%s transaction was cancelled from %s", companyName, stage)
+	if err := insertNotification(ctx, tx, buyerID, "Transaction cancelled", body); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Transaction cancelled", body); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -993,6 +1023,9 @@ func (s *Store) AdvanceSubscription(ctx context.Context, actorID, subscriptionID
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
+	if err := insertNotification(ctx, tx, investorID, "Subscription status updated", fmt.Sprintf("%s moved from %s to %s", dealName, status, next)); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -1004,7 +1037,9 @@ func (s *Store) CancelSubscription(ctx context.Context, actorID, subscriptionID 
 	defer tx.Rollback()
 
 	var status domain.SubscriptionStatus
-	if err := tx.QueryRowContext(ctx, `SELECT status FROM subscriptions WHERE id = ?`, subscriptionID).Scan(&status); err != nil {
+	var investorID int64
+	var dealName string
+	if err := tx.QueryRowContext(ctx, `SELECT s.status, s.investor_id, d.name FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE s.id = ?`, subscriptionID).Scan(&status, &investorID, &dealName); err != nil {
 		return err
 	}
 	if status == domain.SubscriptionActive || status == domain.SubscriptionCancelled {
@@ -1014,6 +1049,9 @@ func (s *Store) CancelSubscription(ctx context.Context, actorID, subscriptionID 
 		return err
 	}
 	if err := insertAudit(ctx, tx, actorID, "cancel_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, domain.SubscriptionCancelled)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, investorID, "Subscription cancelled", fmt.Sprintf("%s subscription was cancelled from %s", dealName, status)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1293,6 +1331,52 @@ func (s *Store) CreateReport(ctx context.Context, actorID int64, report domain.I
 	if err := insertAudit(ctx, tx, actorID, "create_report", "investor_report", id, report.Title); err != nil {
 		return err
 	}
+	if err := insertNotification(ctx, tx, report.UserID, "Investor report available", fmt.Sprintf("%s for %s is %s", report.Title, report.Period, report.Status)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) Notifications(userID int64, limit int) ([]domain.Notification, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := s.db.Query(`SELECT id, user_id, title, body, status, created_at FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT ?`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var notifications []domain.Notification
+	for rows.Next() {
+		var notification domain.Notification
+		if err := rows.Scan(&notification.ID, &notification.UserID, &notification.Title, &notification.Body, &notification.Status, &notification.CreatedAt); err != nil {
+			return nil, err
+		}
+		notifications = append(notifications, notification)
+	}
+	return notifications, rows.Err()
+}
+
+func (s *Store) MarkNotificationRead(ctx context.Context, userID, notificationID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE notifications SET status = 'read' WHERE id = ? AND user_id = ?`, notificationID, userID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	if err := insertAudit(ctx, tx, userID, "mark_notification_read", "notification", notificationID, "status -> read"); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -1393,10 +1477,18 @@ func (s *Store) CloseSupportTicket(ctx context.Context, actorID, ticketID int64)
 		return err
 	}
 	defer tx.Rollback()
+	var ticketUserID int64
+	var subject string
+	if err := tx.QueryRowContext(ctx, `SELECT user_id, subject FROM support_tickets WHERE id = ?`, ticketID).Scan(&ticketUserID, &subject); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE support_tickets SET status = 'closed' WHERE id = ?`, ticketID); err != nil {
 		return err
 	}
 	if err := insertAudit(ctx, tx, actorID, "close_support_ticket", "support_ticket", ticketID, "status -> closed"); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, ticketUserID, "Support ticket closed", fmt.Sprintf("%s has been closed", subject)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1424,5 +1516,11 @@ func (s *Store) AuditLogs(limit int) ([]domain.AuditLog, error) {
 func insertAudit(ctx context.Context, tx *sql.Tx, actorID int64, action, objectType string, objectID int64, note string) error {
 	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (actor_id, action, object_type, object_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		actorID, action, objectType, objectID, note, time.Now().Format(time.RFC3339))
+	return err
+}
+
+func insertNotification(ctx context.Context, tx *sql.Tx, userID int64, title, body string) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO notifications (user_id, title, body, status, created_at) VALUES (?, ?, ?, 'unread', ?)`,
+		userID, title, body, time.Now().Format(time.RFC3339))
 	return err
 }

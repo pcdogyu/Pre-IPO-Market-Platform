@@ -56,6 +56,7 @@ type pageData struct {
 	Notifications     []domain.Notification
 	RiskAlerts        []domain.RiskAlert
 	Tickets           []domain.SupportTicket
+	TicketMessages    []domain.SupportTicketMessage
 	PendingUsers      []domain.User
 	AuditLogs         []domain.AuditLog
 	Stats             map[string]int
@@ -107,6 +108,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/portfolio", s.requireAuth(s.portfolio))
 	mux.HandleFunc("/capital-calls/", s.requireAuth(s.confirmCapitalCall))
 	mux.HandleFunc("/support/tickets", s.requireAuth(s.createSupportTicket))
+	mux.HandleFunc("/support/tickets/reply", s.requireAuth(s.replySupportTicket))
 	mux.HandleFunc("/admin", s.requireAdmin(s.admin))
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
 	mux.HandleFunc("/admin/deals/create", s.requireAdmin(s.createDeal))
@@ -542,8 +544,9 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	companyUpdates, _ := s.store.PortfolioCompanyUpdates(user.ID, 10)
 	reports, _ := s.store.Reports(user.ID)
 	tickets, _ := s.store.SupportTickets(user.ID, false)
+	ticketMessages, _ := s.store.SupportTicketMessages(user, false)
 	notifications, _ := s.store.Notifications(user.ID, 8)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, Notifications: notifications})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, TicketMessages: ticketMessages, Notifications: notifications})
 }
 
 func (s *Server) confirmCapitalCall(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -580,6 +583,27 @@ func (s *Server) createSupportTicket(w http.ResponseWriter, r *http.Request, use
 	http.Redirect(w, r, "/portfolio", http.StatusSeeOther)
 }
 
+func (s *Server) replySupportTicket(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/portfolio?error=form", http.StatusSeeOther)
+		return
+	}
+	ticketID, _ := strconv.ParseInt(r.FormValue("ticket_id"), 10, 64)
+	redirect := r.FormValue("redirect")
+	if redirect == "" {
+		redirect = "/portfolio"
+	}
+	if err := s.store.CreateSupportTicketMessage(r.Context(), user, ticketID, r.FormValue("message")); err != nil {
+		http.Redirect(w, r, redirect+"?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
 func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User) {
 	pending, _ := s.store.UsersPendingReview()
 	users, _ := s.store.Users()
@@ -601,8 +625,9 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	companyUpdates, _ := s.store.CompanyUpdates(0, 20)
 	riskAlerts, _ := s.store.RiskAlerts()
 	tickets, _ := s.store.SupportTickets(user.ID, true)
+	ticketMessages, _ := s.store.SupportTicketMessages(user, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {

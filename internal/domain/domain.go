@@ -328,6 +328,16 @@ type SupportTicket struct {
 	CreatedAt string
 }
 
+type SupportTicketMessage struct {
+	ID        int64
+	TicketID  int64
+	ActorID   int64
+	ActorName string
+	ActorRole Role
+	Message   string
+	CreatedAt string
+}
+
 type AuditLog struct {
 	ID         int64
 	ActorName  string

@@ -267,6 +267,13 @@ func (s *Store) Migrate() error {
 			note TEXT NOT NULL,
 			created_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS support_ticket_messages (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			ticket_id INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+			actor_id INTEGER NOT NULL REFERENCES users(id),
+			message TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 	}
 	for _, stmt := range statements {
 		if _, err := s.db.Exec(stmt); err != nil {
@@ -436,6 +443,10 @@ func (s *Store) SeedDemoData() error {
 	}
 	if _, err := tx.Exec(`INSERT INTO support_tickets (user_id, status, subject, note, created_at) VALUES
 		(2, 'open', 'Subscription document question', 'Investor asked for SPV operating agreement summary.', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO support_ticket_messages (ticket_id, actor_id, message, created_at) VALUES
+		(1, 2, 'Investor asked for SPV operating agreement summary.', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO audit_logs (actor_id, action, object_type, object_id, note, created_at) VALUES (1, 'seed', 'system', 1, 'demo data initialized', ?)`, time.Now().Format(time.RFC3339)); err != nil {
@@ -2177,6 +2188,9 @@ func (s *Store) SupportTickets(userID int64, includeAll bool) ([]domain.SupportT
 }
 
 func (s *Store) CreateSupportTicket(ctx context.Context, userID int64, subject, note string) error {
+	if userID <= 0 || subject == "" {
+		return fmt.Errorf("user and subject are required")
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -2187,8 +2201,106 @@ func (s *Store) CreateSupportTicket(ctx context.Context, userID int64, subject, 
 		return err
 	}
 	id, _ := res.LastInsertId()
+	if note != "" {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO support_ticket_messages (ticket_id, actor_id, message, created_at) VALUES (?, ?, ?, ?)`, id, userID, note, time.Now().Format(time.RFC3339)); err != nil {
+			return err
+		}
+	}
 	if err := insertAudit(ctx, tx, userID, "create_support_ticket", "support_ticket", id, subject); err != nil {
 		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) SupportTicketMessages(user domain.User, includeAll bool) ([]domain.SupportTicketMessage, error) {
+	query := `SELECT m.id, m.ticket_id, m.actor_id, u.name, u.role, m.message, m.created_at
+		FROM support_ticket_messages m
+		JOIN support_tickets t ON t.id = m.ticket_id
+		JOIN users u ON u.id = m.actor_id`
+	var rows *sql.Rows
+	var err error
+	if includeAll || user.Role == domain.RoleAdmin {
+		rows, err = s.db.Query(query + ` ORDER BY m.id DESC`)
+	} else {
+		rows, err = s.db.Query(query+` WHERE t.user_id = ? ORDER BY m.id DESC`, user.ID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var messages []domain.SupportTicketMessage
+	for rows.Next() {
+		var message domain.SupportTicketMessage
+		if err := rows.Scan(&message.ID, &message.TicketID, &message.ActorID, &message.ActorName, &message.ActorRole, &message.Message, &message.CreatedAt); err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+	return messages, rows.Err()
+}
+
+func (s *Store) CreateSupportTicketMessage(ctx context.Context, actor domain.User, ticketID int64, message string) error {
+	if ticketID <= 0 || message == "" {
+		return fmt.Errorf("ticket and message are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var ticketUserID int64
+	var subject string
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT user_id, subject, status FROM support_tickets WHERE id = ?`, ticketID).Scan(&ticketUserID, &subject, &status); err != nil {
+		return err
+	}
+	if actor.Role != domain.RoleAdmin && actor.ID != ticketUserID {
+		return fmt.Errorf("actor cannot reply to this support ticket")
+	}
+	if status == "closed" {
+		return fmt.Errorf("support ticket is closed")
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO support_ticket_messages (ticket_id, actor_id, message, created_at) VALUES (?, ?, ?, ?)`, ticketID, actor.ID, message, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if _, err := tx.ExecContext(ctx, `UPDATE support_tickets SET note = ? WHERE id = ?`, message, ticketID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actor.ID, "reply_support_ticket", "support_ticket_message", id, fmt.Sprintf("ticket #%d", ticketID)); err != nil {
+		return err
+	}
+	if actor.Role == domain.RoleAdmin {
+		if err := insertNotification(ctx, tx, ticketUserID, "Support ticket reply", fmt.Sprintf("%s has a new admin reply", subject)); err != nil {
+			return err
+		}
+	} else {
+		var adminIDs []int64
+		rows, err := tx.QueryContext(ctx, `SELECT id FROM users WHERE role = ?`, string(domain.RoleAdmin))
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var adminID int64
+			if err := rows.Scan(&adminID); err != nil {
+				_ = rows.Close()
+				return err
+			}
+			adminIDs = append(adminIDs, adminID)
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for _, adminID := range adminIDs {
+			if err := insertNotification(ctx, tx, adminID, "Support ticket reply", fmt.Sprintf("%s has a new user reply", subject)); err != nil {
+				return err
+			}
+		}
 	}
 	return tx.Commit()
 }

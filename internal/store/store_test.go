@@ -169,6 +169,40 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	if len(tickets) < 2 {
 		t.Fatalf("expected seeded and created tickets, got %d", len(tickets))
 	}
+	var ticketID int64
+	for _, ticket := range tickets {
+		if ticket.Subject == "Need report" {
+			ticketID = ticket.ID
+		}
+	}
+	if ticketID == 0 {
+		t.Fatal("expected created support ticket")
+	}
+	if err := s.CreateSupportTicketMessage(context.Background(), investor, ticketID, "Investor follow-up"); err != nil {
+		t.Fatalf("create user ticket message: %v", err)
+	}
+	if err := s.CreateSupportTicketMessage(context.Background(), admin, ticketID, "Admin response"); err != nil {
+		t.Fatalf("create admin ticket message: %v", err)
+	}
+	messages, err := s.SupportTicketMessages(investor, false)
+	if err != nil {
+		t.Fatalf("ticket messages: %v", err)
+	}
+	var foundAdminReply bool
+	for _, message := range messages {
+		if message.TicketID == ticketID && message.Message == "Admin response" {
+			foundAdminReply = true
+		}
+	}
+	if !foundAdminReply {
+		t.Fatal("expected admin reply in ticket messages")
+	}
+	if err := s.CloseSupportTicket(context.Background(), admin.ID, ticketID); err != nil {
+		t.Fatalf("close created ticket: %v", err)
+	}
+	if err := s.CreateSupportTicketMessage(context.Background(), investor, ticketID, "Late reply"); err == nil {
+		t.Fatal("closed ticket should reject replies")
+	}
 }
 
 func TestWatchlistWorkflow(t *testing.T) {

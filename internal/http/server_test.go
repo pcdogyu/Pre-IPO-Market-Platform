@@ -265,6 +265,46 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 	}
 }
 
+func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
+	app := testApp(t)
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	form := url.Values{"ticket_id": {"1"}, "message": {"Investor follow-up"}}
+	req := httptest.NewRequest(http.MethodPost, "/support/tickets/reply", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(investorCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("investor reply status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	form = url.Values{"ticket_id": {"1"}, "message": {"Admin response"}, "redirect": {"/admin"}}
+	req = httptest.NewRequest(http.MethodPost, "/support/tickets/reply", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("admin reply status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Admin response") {
+		t.Fatal("portfolio should render admin ticket reply")
+	}
+	if !strings.Contains(body, "Support ticket reply") {
+		t.Fatal("portfolio should render support ticket reply notification")
+	}
+}
+
 func TestAdminCanRejectAndCancel(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin@demo.local")

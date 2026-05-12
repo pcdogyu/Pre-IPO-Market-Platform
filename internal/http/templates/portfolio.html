@@ -56,7 +56,11 @@
     </section>
     <section class="grid two">
       <form method="post" action="/support/tickets" class="panel stack"><h2>Support Ticket</h2><label>Subject<input name="subject" required></label><label>Note<input name="note"></label><button>{{t .Lang "form.submit"}}</button></form>
-      <div><h2>My Tickets</h2><table><thead><tr><th>Subject</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.Subject}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="2">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>My Tickets</h2><table><thead><tr><th>Subject</th><th>{{t .Lang "label.status"}}</th><th>Reply</th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.Subject}}</td><td>{{.Status}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/support/tickets/reply" class="inline-form"><input type="hidden" name="ticket_id" value="{{.ID}}"><input name="message" value="Follow-up question"><button class="small">{{t $.Lang "form.submit"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section>
+      <h2>Ticket Messages</h2>
+      <table><thead><tr><th>Ticket</th><th>Actor</th><th>Message</th><th>Time</th></tr></thead><tbody>{{range .TicketMessages}}<tr><td>#{{.TicketID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{.Message}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
 </body>

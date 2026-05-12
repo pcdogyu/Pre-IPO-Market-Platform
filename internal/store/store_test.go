@@ -415,6 +415,74 @@ func TestExecutionDocumentWorkflow(t *testing.T) {
 	}
 }
 
+func TestEscrowPaymentWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	payment := domain.EscrowPayment{
+		TransactionID: 1,
+		Amount:        33600,
+		Status:        domain.EscrowInstructionSent,
+		Reference:     "ESCROW-TEST-001",
+		Note:          "Wire instruction test",
+	}
+	if err := s.CreateEscrowPayment(context.Background(), admin.ID, payment); err != nil {
+		t.Fatalf("create escrow payment: %v", err)
+	}
+	if err := s.CreateEscrowPayment(context.Background(), admin.ID, domain.EscrowPayment{
+		TransactionID: 1,
+		Amount:        1,
+		Status:        "invalid",
+		Reference:     "ESCROW-BAD",
+	}); err == nil {
+		t.Fatal("invalid escrow status should fail")
+	}
+	payments, err := s.EscrowPayments(investor)
+	if err != nil {
+		t.Fatalf("escrow payments: %v", err)
+	}
+	var paymentID int64
+	for _, item := range payments {
+		if item.Reference == payment.Reference && item.Status == domain.EscrowInstructionSent {
+			paymentID = item.ID
+		}
+	}
+	if paymentID == 0 {
+		t.Fatal("expected escrow payment visible to buyer")
+	}
+	if err := s.AdvanceEscrowPayment(context.Background(), admin.ID, paymentID); err != nil {
+		t.Fatalf("advance escrow payment to funded: %v", err)
+	}
+	if err := s.AdvanceEscrowPayment(context.Background(), admin.ID, paymentID); err != nil {
+		t.Fatalf("advance escrow payment to released: %v", err)
+	}
+	payments, err = s.EscrowPayments(investor)
+	if err != nil {
+		t.Fatalf("escrow payments after advance: %v", err)
+	}
+	for _, item := range payments {
+		if item.ID == paymentID && (item.Status != domain.EscrowReleased || item.ReleasedAt == "") {
+			t.Fatalf("escrow payment got status %s released_at %q", item.Status, item.ReleasedAt)
+		}
+	}
+	notifications, err := s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Title == "Escrow payment updated" {
+			return
+		}
+	}
+	t.Fatal("expected escrow payment notification")
+}
+
 func TestNotificationWorkflow(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin@demo.local", "demo123")

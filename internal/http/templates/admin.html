@@ -82,6 +82,18 @@
       </div>
     </section>
     <section class="grid two">
+      <form method="post" action="/admin/escrow-payments/create" class="panel stack">
+        <h2>Escrow Payment</h2>
+        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="0.01" step="0.01" value="33600" required></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="instruction_sent">instruction_sent</option><option value="funded">funded</option><option value="released">released</option></select></label>
+        <label>Reference<input name="reference" value="ESCROW-REF-001" required></label>
+        <label>Note<input name="note" value="Escrow instruction recorded"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <div><h2>Escrow Payments</h2><table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Reference</th><th></th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.Reference}}</td><td>{{if ne .Status "released"}}<form method="post" action="/admin/escrow-payments/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
       <div><h2>Post-Investment Valuations</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>

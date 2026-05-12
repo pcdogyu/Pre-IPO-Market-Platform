@@ -78,3 +78,20 @@ func TestDocumentStatusFlow(t *testing.T) {
 		t.Fatal("archived document should be terminal")
 	}
 }
+
+func TestEscrowPaymentStatusFlow(t *testing.T) {
+	status := EscrowInstructionSent
+	for _, want := range []EscrowPaymentStatus{EscrowFunded, EscrowReleased} {
+		next, err := NextEscrowPaymentStatus(status)
+		if err != nil {
+			t.Fatalf("advance %s: %v", status, err)
+		}
+		if next != want {
+			t.Fatalf("got %s, want %s", next, want)
+		}
+		status = next
+	}
+	if _, err := NextEscrowPaymentStatus(EscrowReleased); err == nil {
+		t.Fatal("released escrow payment should be terminal")
+	}
+}

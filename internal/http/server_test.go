@@ -247,6 +247,50 @@ func TestAdminCanManageExecutionDocuments(t *testing.T) {
 	}
 }
 
+func TestAdminCanManageEscrowPayments(t *testing.T) {
+	app := testApp(t)
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{
+		"transaction_id": {"1"},
+		"amount":         {"33600"},
+		"status":         {"instruction_sent"},
+		"reference":      {"ESCROW-HTTP-001"},
+		"note":           {"HTTP escrow test"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/admin/escrow-payments/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create escrow payment status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/admin/escrow-payments/1/advance", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("advance escrow payment status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "ESCROW-HTTP-001") {
+		t.Fatal("portfolio should render escrow payment reference")
+	}
+	if !strings.Contains(body, "Escrow payment updated") {
+		t.Fatal("portfolio should render escrow payment notification")
+	}
+}
+
 func TestUserCanMarkNotificationRead(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor@demo.local")

@@ -30,7 +30,11 @@
       <div><h2>Sell Orders</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .SellOrders}}<tr><td>{{.CompanyName}}</td><td>{{.Shares}}</td><td>{{money .TargetPrice}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Buy Interests</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .BuyInterests}}<tr><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{money .TargetPrice}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
-    <section><h2>Transactions</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Buyer</th><th>Seller</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{.BuyerName}}</td><td>{{.SellerName}}</td><td>{{.Shares}}</td><td>{{statusLabel .Stage}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>Transactions</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Buyer</th><th>Seller</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.status"}}</th><th>Escrow</th></tr></thead><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{.BuyerName}}</td><td>{{.SellerName}}</td><td>{{.Shares}}</td><td>{{statusLabel .Stage}}</td><td>{{.EscrowStatus}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section>
+      <h2>Escrow Payments</h2>
+      <table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Reference</th><th>Note</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.Reference}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
         <h2>Negotiation / Counter Offer</h2>

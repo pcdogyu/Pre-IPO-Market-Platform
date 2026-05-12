@@ -168,6 +168,16 @@ func (s *Store) Migrate() error {
 			signed_at TEXT NOT NULL,
 			note TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS escrow_payments (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+			amount REAL NOT NULL,
+			status TEXT NOT NULL,
+			reference TEXT NOT NULL,
+			note TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			released_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS valuations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			company_id INTEGER NOT NULL REFERENCES companies(id),
@@ -350,6 +360,10 @@ func (s *Store) SeedDemoData() error {
 	if _, err := tx.Exec(`INSERT INTO execution_documents (transaction_id, document_type, status, signed_at, note) VALUES
 		(1, 'NDA', 'signed', ?, 'Counterparties cleared confidentiality'),
 		(1, 'SPA', 'drafted', '', 'Pending ROFR package')`, time.Now().Format("2006-01-02")); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO escrow_payments (transaction_id, amount, status, reference, note, created_at, released_at) VALUES
+		(1, 33600, 'instruction_sent', 'ESCROW-DEMO-001', 'Wire instructions prepared for matched secondary trade.', ?, '')`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO valuations (company_id, valuation, share_price, as_of_date) VALUES
@@ -1316,6 +1330,134 @@ func (s *Store) AdvanceExecutionDocument(ctx context.Context, actorID, documentI
 		return err
 	}
 	if err := insertAudit(ctx, tx, actorID, "advance_execution_document", "execution_document", documentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) EscrowPayments(user domain.User) ([]domain.EscrowPayment, error) {
+	query := `SELECT ep.id, ep.transaction_id, c.name, bu.name, su.name, ep.amount, ep.status, ep.reference, ep.note, ep.created_at, ep.released_at
+		FROM escrow_payments ep
+		JOIN transactions t ON t.id = ep.transaction_id
+		JOIN companies c ON c.id = t.company_id
+		JOIN users bu ON bu.id = t.buyer_id
+		JOIN users su ON su.id = t.seller_id`
+	var rows *sql.Rows
+	var err error
+	switch user.Role {
+	case domain.RoleInvestor, domain.RoleInstitution:
+		rows, err = s.db.Query(query+` WHERE t.buyer_id = ? ORDER BY ep.id DESC`, user.ID)
+	case domain.RoleSeller:
+		rows, err = s.db.Query(query+` WHERE t.seller_id = ? ORDER BY ep.id DESC`, user.ID)
+	default:
+		rows, err = s.db.Query(query + ` ORDER BY ep.id DESC`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var payments []domain.EscrowPayment
+	for rows.Next() {
+		var payment domain.EscrowPayment
+		if err := rows.Scan(&payment.ID, &payment.TransactionID, &payment.CompanyName, &payment.BuyerName, &payment.SellerName, &payment.Amount, &payment.Status, &payment.Reference, &payment.Note, &payment.CreatedAt, &payment.ReleasedAt); err != nil {
+			return nil, err
+		}
+		payments = append(payments, payment)
+	}
+	return payments, rows.Err()
+}
+
+func (s *Store) CreateEscrowPayment(ctx context.Context, actorID int64, payment domain.EscrowPayment) error {
+	if payment.TransactionID <= 0 || payment.Amount <= 0 || payment.Reference == "" {
+		return fmt.Errorf("transaction, amount and reference are required")
+	}
+	if payment.Status == "" {
+		payment.Status = domain.EscrowInstructionSent
+	}
+	switch payment.Status {
+	case domain.EscrowInstructionSent, domain.EscrowFunded, domain.EscrowReleased:
+	default:
+		return fmt.Errorf("unknown escrow payment status: %s", payment.Status)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var buyerID, sellerID int64
+	var companyName string
+	var stage domain.TransactionStage
+	if err := tx.QueryRowContext(ctx, `SELECT t.buyer_id, t.seller_id, c.name, t.stage FROM transactions t JOIN companies c ON c.id = t.company_id WHERE t.id = ?`, payment.TransactionID).Scan(&buyerID, &sellerID, &companyName, &stage); err != nil {
+		return err
+	}
+	if stage == domain.StageCancelled {
+		return fmt.Errorf("cannot create escrow payment for cancelled transaction")
+	}
+	releasedAt := ""
+	if payment.Status == domain.EscrowReleased {
+		releasedAt = time.Now().Format(time.RFC3339)
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO escrow_payments (transaction_id, amount, status, reference, note, created_at, released_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		payment.TransactionID, payment.Amount, string(payment.Status), payment.Reference, payment.Note, time.Now().Format(time.RFC3339), releasedAt)
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET escrow_status = ? WHERE id = ?`, string(payment.Status), payment.TransactionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "create_escrow_payment", "escrow_payment", id, fmt.Sprintf("transaction #%d amount %.2f", payment.TransactionID, payment.Amount)); err != nil {
+		return err
+	}
+	body := fmt.Sprintf("%s escrow payment %.2f is %s", companyName, payment.Amount, payment.Status)
+	if err := insertNotification(ctx, tx, buyerID, "Escrow payment updated", body); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Escrow payment updated", body); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) AdvanceEscrowPayment(ctx context.Context, actorID, paymentID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var transactionID, buyerID, sellerID int64
+	var amount float64
+	var status domain.EscrowPaymentStatus
+	var companyName string
+	if err := tx.QueryRowContext(ctx, `SELECT ep.transaction_id, t.buyer_id, t.seller_id, c.name, ep.amount, ep.status
+		FROM escrow_payments ep
+		JOIN transactions t ON t.id = ep.transaction_id
+		JOIN companies c ON c.id = t.company_id
+		WHERE ep.id = ?`, paymentID).Scan(&transactionID, &buyerID, &sellerID, &companyName, &amount, &status); err != nil {
+		return err
+	}
+	next, err := domain.NextEscrowPaymentStatus(status)
+	if err != nil {
+		return err
+	}
+	releasedAt := ""
+	if next == domain.EscrowReleased {
+		releasedAt = time.Now().Format(time.RFC3339)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE escrow_payments SET status = ?, released_at = ? WHERE id = ?`, string(next), releasedAt, paymentID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET escrow_status = ? WHERE id = ?`, string(next), transactionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "advance_escrow_payment", "escrow_payment", paymentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	body := fmt.Sprintf("%s escrow payment %.2f moved from %s to %s", companyName, amount, status, next)
+	if err := insertNotification(ctx, tx, buyerID, "Escrow payment updated", body); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Escrow payment updated", body); err != nil {
 		return err
 	}
 	return tx.Commit()

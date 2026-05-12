@@ -54,6 +54,14 @@ const (
 	DocumentVoid     DocumentStatus = "void"
 )
 
+type EscrowPaymentStatus string
+
+const (
+	EscrowInstructionSent EscrowPaymentStatus = "instruction_sent"
+	EscrowFunded          EscrowPaymentStatus = "funded"
+	EscrowReleased        EscrowPaymentStatus = "released"
+)
+
 type User struct {
 	ID                  int64
 	Email               string
@@ -192,6 +200,20 @@ type ExecutionDocument struct {
 	Status        string
 	SignedAt      string
 	Note          string
+}
+
+type EscrowPayment struct {
+	ID            int64
+	TransactionID int64
+	CompanyName   string
+	BuyerName     string
+	SellerName    string
+	Amount        float64
+	Status        EscrowPaymentStatus
+	Reference     string
+	Note          string
+	CreatedAt     string
+	ReleasedAt    string
 }
 
 type ValuationRecord struct {
@@ -340,6 +362,19 @@ func NextDocumentStatus(status DocumentStatus) (DocumentStatus, error) {
 		return status, fmt.Errorf("document is already terminal: %s", status)
 	default:
 		return status, fmt.Errorf("unknown document status: %s", status)
+	}
+}
+
+func NextEscrowPaymentStatus(status EscrowPaymentStatus) (EscrowPaymentStatus, error) {
+	switch status {
+	case EscrowInstructionSent:
+		return EscrowFunded, nil
+	case EscrowFunded:
+		return EscrowReleased, nil
+	case EscrowReleased:
+		return status, fmt.Errorf("escrow payment is already terminal: %s", status)
+	default:
+		return status, fmt.Errorf("unknown escrow payment status: %s", status)
 	}
 }
 

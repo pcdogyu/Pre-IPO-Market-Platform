@@ -2274,7 +2274,15 @@ func (s *Store) CreateExitEvent(ctx context.Context, actorID int64, event domain
 }
 
 func (s *Store) Distributions(userID int64) ([]domain.Distribution, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, COALESCE(holding_id, 0), amount, status, tax_document FROM distributions WHERE user_id = ? ORDER BY id DESC`, userID)
+	query := `SELECT d.id, d.user_id, u.name, COALESCE(d.holding_id, 0), d.amount, d.status, d.tax_document
+		FROM distributions d JOIN users u ON u.id = d.user_id`
+	var rows *sql.Rows
+	var err error
+	if userID > 0 {
+		rows, err = s.db.Query(query+` WHERE d.user_id = ? ORDER BY d.id DESC`, userID)
+	} else {
+		rows, err = s.db.Query(query + ` ORDER BY d.id DESC`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -2282,7 +2290,7 @@ func (s *Store) Distributions(userID int64) ([]domain.Distribution, error) {
 	var distributions []domain.Distribution
 	for rows.Next() {
 		var distribution domain.Distribution
-		if err := rows.Scan(&distribution.ID, &distribution.UserID, &distribution.HoldingID, &distribution.Amount, &distribution.Status, &distribution.TaxDocument); err != nil {
+		if err := rows.Scan(&distribution.ID, &distribution.UserID, &distribution.UserName, &distribution.HoldingID, &distribution.Amount, &distribution.Status, &distribution.TaxDocument); err != nil {
 			return nil, err
 		}
 		distributions = append(distributions, distribution)
@@ -2366,6 +2374,9 @@ func (s *Store) ConfirmCapitalCall(ctx context.Context, userID, callID int64) er
 }
 
 func (s *Store) CreateDistribution(ctx context.Context, actorID int64, distribution domain.Distribution) error {
+	if distribution.UserID <= 0 || distribution.Amount < 0 || !validDistributionStatus(distribution.Status) {
+		return fmt.Errorf("valid user, amount and distribution status are required")
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -2384,7 +2395,60 @@ func (s *Store) CreateDistribution(ctx context.Context, actorID int64, distribut
 	if err := insertAudit(ctx, tx, actorID, "create_distribution", "distribution", id, distribution.Status); err != nil {
 		return err
 	}
+	if err := insertNotification(ctx, tx, distribution.UserID, "Distribution created", fmt.Sprintf("Distribution %.2f is %s", distribution.Amount, distribution.Status)); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+func (s *Store) AdvanceDistribution(ctx context.Context, actorID, distributionID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var userID int64
+	var amount float64
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT user_id, amount, status FROM distributions WHERE id = ?`, distributionID).Scan(&userID, &amount, &status); err != nil {
+		return err
+	}
+	next, err := nextDistributionStatus(status)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE distributions SET status = ? WHERE id = ?`, next, distributionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "advance_distribution", "distribution", distributionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, userID, "Distribution status updated", fmt.Sprintf("Distribution %.2f moved from %s to %s", amount, status, next)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func validDistributionStatus(status string) bool {
+	switch status {
+	case "not_due", "pending", "paid":
+		return true
+	default:
+		return false
+	}
+}
+
+func nextDistributionStatus(status string) (string, error) {
+	switch status {
+	case "not_due":
+		return "pending", nil
+	case "pending":
+		return "paid", nil
+	case "paid":
+		return "", fmt.Errorf("distribution is already paid")
+	default:
+		return "", fmt.Errorf("unknown distribution status: %s", status)
+	}
 }
 
 func (s *Store) Reports(userID int64) ([]domain.InvestorReport, error) {

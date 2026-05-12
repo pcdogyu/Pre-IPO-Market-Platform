@@ -131,6 +131,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/exits/create", s.requireAdmin(s.createExitEvent))
 	mux.HandleFunc("/admin/company-updates/create", s.requireAdmin(s.createCompanyUpdate))
 	mux.HandleFunc("/admin/distributions/create", s.requireAdmin(s.createDistribution))
+	mux.HandleFunc("/admin/distributions/", s.requireAdmin(s.advanceDistribution))
 	mux.HandleFunc("/admin/capital-calls/create", s.requireAdmin(s.createCapitalCall))
 	mux.HandleFunc("/admin/reports/create", s.requireAdmin(s.createReport))
 	mux.HandleFunc("/admin/risks/create", s.requireAdmin(s.createRiskAlert))
@@ -696,6 +697,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	escrowPayments, _ := s.store.EscrowPayments(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
+	distributions, _ := s.store.Distributions(0)
 	capitalCalls, _ := s.store.CapitalCalls(user)
 	companyUpdates, _ := s.store.CompanyUpdates(0, 20)
 	riskAlerts, _ := s.store.RiskAlerts()
@@ -703,7 +705,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -979,6 +981,24 @@ func (s *Server) createDistribution(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	if err := s.store.CreateDistribution(r.Context(), user.ID, distribution); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) advanceDistribution(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/distributions/"), "/advance")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.store.AdvanceDistribution(r.Context(), user.ID, id); err != nil {
 		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
 		return
 	}

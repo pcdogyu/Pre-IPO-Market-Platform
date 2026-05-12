@@ -298,6 +298,7 @@ type ExitEvent struct {
 type Distribution struct {
 	ID          int64
 	UserID      int64
+	UserName    string
 	HoldingID   int64
 	Amount      float64
 	Status      string

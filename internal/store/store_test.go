@@ -504,6 +504,39 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	if err := s.CreateDistribution(context.Background(), admin.ID, domain.Distribution{UserID: 2, Amount: 1200, Status: "pending", TaxDocument: "K-1 draft"}); err != nil {
 		t.Fatalf("create distribution: %v", err)
 	}
+	distributions, err := s.Distributions(0)
+	if err != nil {
+		t.Fatalf("admin distributions: %v", err)
+	}
+	var distributionID int64
+	for _, distribution := range distributions {
+		if distribution.Amount == 1200 && distribution.UserName != "" && distribution.Status == "pending" {
+			distributionID = distribution.ID
+			break
+		}
+	}
+	if distributionID == 0 {
+		t.Fatal("expected pending distribution in admin queue")
+	}
+	if err := s.AdvanceDistribution(context.Background(), admin.ID, distributionID); err != nil {
+		t.Fatalf("advance distribution: %v", err)
+	}
+	distributions, err = s.Distributions(2)
+	if err != nil {
+		t.Fatalf("investor distributions: %v", err)
+	}
+	var paidDistribution bool
+	for _, distribution := range distributions {
+		if distribution.ID == distributionID && distribution.Status == "paid" {
+			paidDistribution = true
+		}
+	}
+	if !paidDistribution {
+		t.Fatal("expected distribution advanced to paid")
+	}
+	if err := s.AdvanceDistribution(context.Background(), admin.ID, distributionID); err == nil {
+		t.Fatal("paid distribution should not advance")
+	}
 	if err := s.CreateReport(context.Background(), admin.ID, domain.InvestorReport{UserID: 2, ReportType: "portfolio", Title: "Q2 Report", Period: "2026-Q2", Status: "available"}); err != nil {
 		t.Fatalf("create report: %v", err)
 	}

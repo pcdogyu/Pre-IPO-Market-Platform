@@ -215,6 +215,21 @@ type Holding struct {
 	Status      string
 }
 
+type PortfolioValuation struct {
+	Label          string
+	SourceType     string
+	Cost           float64
+	CurrentValue   float64
+	UnrealizedGain float64
+	Status         string
+}
+
+type PortfolioSummary struct {
+	Cost           float64
+	CurrentValue   float64
+	UnrealizedGain float64
+}
+
 type SPVVehicle struct {
 	ID           int64
 	DealID       int64

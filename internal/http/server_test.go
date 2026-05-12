@@ -229,6 +229,25 @@ func TestUserCanManageWatchlist(t *testing.T) {
 	}
 }
 
+func TestPortfolioRendersValuationSummary(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor@demo.local")
+	req := httptest.NewRequest(http.MethodGet, "/portfolio", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Portfolio Valuation") {
+		t.Fatal("portfolio should render valuation summary")
+	}
+	if !strings.Contains(body, "Unrealized Gain / Loss") {
+		t.Fatal("portfolio should render unrealized gain label")
+	}
+}
+
 func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin@demo.local")

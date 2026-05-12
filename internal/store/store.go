@@ -1603,6 +1603,63 @@ func (s *Store) Holdings(userID int64) ([]domain.Holding, error) {
 	return holdings, rows.Err()
 }
 
+func (s *Store) PortfolioValuations(userID int64) ([]domain.PortfolioValuation, domain.PortfolioSummary, error) {
+	var lines []domain.PortfolioValuation
+	var summary domain.PortfolioSummary
+	txRows, err := s.db.Query(`SELECT c.name, t.shares * t.price, t.shares * c.share_price, t.stage
+		FROM transactions t JOIN companies c ON c.id = t.company_id
+		WHERE t.buyer_id = ? AND t.stage != ?
+		ORDER BY t.id DESC`, userID, string(domain.StageCancelled))
+	if err != nil {
+		return nil, summary, err
+	}
+	for txRows.Next() {
+		var line domain.PortfolioValuation
+		line.SourceType = "secondary"
+		if err := txRows.Scan(&line.Label, &line.Cost, &line.CurrentValue, &line.Status); err != nil {
+			_ = txRows.Close()
+			return nil, summary, err
+		}
+		line.UnrealizedGain = line.CurrentValue - line.Cost
+		lines = append(lines, line)
+		summary.Cost += line.Cost
+		summary.CurrentValue += line.CurrentValue
+	}
+	if err := txRows.Err(); err != nil {
+		_ = txRows.Close()
+		return nil, summary, err
+	}
+	if err := txRows.Close(); err != nil {
+		return nil, summary, err
+	}
+
+	subRows, err := s.db.Query(`SELECT d.name, s.amount, s.status
+		FROM subscriptions s JOIN deals d ON d.id = s.deal_id
+		WHERE s.investor_id = ? AND s.status != ?
+		ORDER BY s.id DESC`, userID, string(domain.SubscriptionCancelled))
+	if err != nil {
+		return nil, summary, err
+	}
+	defer subRows.Close()
+	for subRows.Next() {
+		var line domain.PortfolioValuation
+		line.SourceType = "spv"
+		if err := subRows.Scan(&line.Label, &line.Cost, &line.Status); err != nil {
+			return nil, summary, err
+		}
+		line.CurrentValue = line.Cost
+		line.UnrealizedGain = 0
+		lines = append(lines, line)
+		summary.Cost += line.Cost
+		summary.CurrentValue += line.CurrentValue
+	}
+	if err := subRows.Err(); err != nil {
+		return nil, summary, err
+	}
+	summary.UnrealizedGain = summary.CurrentValue - summary.Cost
+	return lines, summary, nil
+}
+
 func (s *Store) SPVVehicles() ([]domain.SPVVehicle, error) {
 	rows, err := s.db.Query(`SELECT v.id, v.deal_id, d.name, v.name, v.jurisdiction, v.manager, v.share_class, v.total_units, v.issued_units
 		FROM spv_vehicles v JOIN deals d ON d.id = v.deal_id ORDER BY v.id`)

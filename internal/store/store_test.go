@@ -378,6 +378,40 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	}
 }
 
+func TestPortfolioValuationSummary(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.CreateValuation(context.Background(), admin.ID, 1, "$5.0B", 45, "2026-06-30"); err != nil {
+		t.Fatalf("create valuation: %v", err)
+	}
+	lines, summary, err := s.PortfolioValuations(investor.ID)
+	if err != nil {
+		t.Fatalf("portfolio valuations: %v", err)
+	}
+	if len(lines) == 0 {
+		t.Fatal("expected portfolio valuation lines")
+	}
+	if summary.CurrentValue <= summary.Cost {
+		t.Fatalf("expected current value above cost after price update, got cost %.2f current %.2f", summary.Cost, summary.CurrentValue)
+	}
+	var foundDirect bool
+	for _, line := range lines {
+		if line.Label == "NeuralBridge AI" && line.SourceType == "secondary" && line.CurrentValue == 36000 {
+			foundDirect = true
+		}
+	}
+	if !foundDirect {
+		t.Fatal("expected direct secondary line marked at latest share price")
+	}
+}
+
 func TestRejectAndCancelWorkflows(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin@demo.local", "demo123")

@@ -43,6 +43,8 @@ type pageData struct {
 	Subscriptions     []domain.Subscription
 	SubDocuments      []domain.SubscriptionDocument
 	Holdings          []domain.Holding
+	PortfolioValues   []domain.PortfolioValuation
+	PortfolioSummary  domain.PortfolioSummary
 	Users             []domain.User
 	SPVs              []domain.SPVVehicle
 	Documents         []domain.ExecutionDocument
@@ -235,6 +237,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 	transactions, _ := s.store.Transactions(user)
 	deals, _ := s.store.Deals()
 	holdings, _ := s.store.Holdings(user.ID)
+	portfolioValues, portfolioSummary, _ := s.store.PortfolioValuations(user.ID)
 	watchlist, _ := s.store.Watchlist(user.ID)
 	complianceReviews, _ := s.store.ComplianceReviews(user, 5)
 	notifications, _ := s.store.Notifications(user.ID, 8)
@@ -245,7 +248,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 		"holdings":     len(holdings),
 		"watchlist":    len(watchlist),
 	}
-	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, ComplianceReviews: complianceReviews, Transactions: transactions, Deals: deals, Holdings: holdings, Notifications: notifications, Stats: stats, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, ComplianceReviews: complianceReviews, Transactions: transactions, Deals: deals, Holdings: holdings, PortfolioValues: portfolioValues, PortfolioSummary: portfolioSummary, Notifications: notifications, Stats: stats, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createComplianceReview(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -535,6 +538,7 @@ func (s *Server) dealActions(w http.ResponseWriter, r *http.Request, user domain
 
 func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.User) {
 	holdings, _ := s.store.Holdings(user.ID)
+	portfolioValues, portfolioSummary, _ := s.store.PortfolioValuations(user.ID)
 	transactions, _ := s.store.Transactions(user)
 	negotiations, _ := s.store.Negotiations(user)
 	documents, _ := s.store.ExecutionDocuments(user)
@@ -551,7 +555,7 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	tickets, _ := s.store.SupportTickets(user.ID, false)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, false)
 	notifications, _ := s.store.Notifications(user.ID, 8)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, TicketMessages: ticketMessages, Notifications: notifications})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, PortfolioValues: portfolioValues, PortfolioSummary: portfolioSummary, Transactions: transactions, Negotiations: negotiations, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, TicketMessages: ticketMessages, Notifications: notifications})
 }
 
 func (s *Server) confirmCapitalCall(w http.ResponseWriter, r *http.Request, user domain.User) {

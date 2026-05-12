@@ -247,6 +247,44 @@ func TestAdminCanManageExecutionDocuments(t *testing.T) {
 	}
 }
 
+func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
+	app := testApp(t)
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"subscription_id": {"1"}, "document_type": {"Risk Disclosure"}, "note": {"Risk disclosure package"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/subscription-documents/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create subscription document status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/admin/subscription-documents/1/advance", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("advance subscription document status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Risk Disclosure") {
+		t.Fatal("portfolio should render subscription document")
+	}
+	if !strings.Contains(body, "Subscription document") {
+		t.Fatal("portfolio should render subscription document notifications")
+	}
+}
+
 func TestAdminCanManageEscrowPayments(t *testing.T) {
 	app := testApp(t)
 	adminCookie := loginCookie(t, app, "admin@demo.local")

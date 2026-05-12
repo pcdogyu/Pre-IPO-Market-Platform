@@ -38,6 +38,7 @@ type pageData struct {
 	Negotiations   []domain.Negotiation
 	Deals          []domain.Deal
 	Subscriptions  []domain.Subscription
+	SubDocuments   []domain.SubscriptionDocument
 	Holdings       []domain.Holding
 	Users          []domain.User
 	SPVs           []domain.SPVVehicle
@@ -120,6 +121,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/reviews/", s.requireAdmin(s.approveReview))
 	mux.HandleFunc("/admin/transactions/", s.requireAdmin(s.advanceTransaction))
 	mux.HandleFunc("/admin/subscriptions/", s.requireAdmin(s.advanceSubscription))
+	mux.HandleFunc("/admin/subscription-documents/create", s.requireAdmin(s.createSubscriptionDocument))
+	mux.HandleFunc("/admin/subscription-documents/", s.requireAdmin(s.advanceSubscriptionDocument))
 	return mux
 }
 
@@ -403,7 +406,8 @@ func (s *Server) deals(w http.ResponseWriter, r *http.Request, user domain.User)
 	deals, _ := s.store.Deals()
 	spvs, _ := s.store.SPVVehicles()
 	subscriptions, _ := s.store.Subscriptions(user)
-	s.render(w, r, "deals.html", pageData{Title: "Deals", User: user, Lang: user.Language, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, Error: r.URL.Query().Get("error")})
+	subDocuments, _ := s.store.SubscriptionDocuments(user)
+	s.render(w, r, "deals.html", pageData{Title: "Deals", User: user, Lang: user.Language, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createDeal(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -472,6 +476,7 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	documents, _ := s.store.ExecutionDocuments(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
 	subscriptions, _ := s.store.Subscriptions(user)
+	subDocuments, _ := s.store.SubscriptionDocuments(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
 	distributions, _ := s.store.Distributions(user.ID)
@@ -480,7 +485,7 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	reports, _ := s.store.Reports(user.ID)
 	tickets, _ := s.store.SupportTickets(user.ID, false)
 	notifications, _ := s.store.Notifications(user.ID, 8)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, EscrowPayments: escrowPayments, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, Notifications: notifications})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, Notifications: notifications})
 }
 
 func (s *Server) confirmCapitalCall(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -528,6 +533,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	deals, _ := s.store.Deals()
 	spvs, _ := s.store.SPVVehicles()
 	subscriptions, _ := s.store.Subscriptions(user)
+	subDocuments, _ := s.store.SubscriptionDocuments(user)
 	documents, _ := s.store.ExecutionDocuments(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
 	valuations, _ := s.store.Valuations()
@@ -537,7 +543,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	riskAlerts, _ := s.store.RiskAlerts()
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -631,6 +637,40 @@ func (s *Server) advanceEscrowPayment(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	_ = s.store.AdvanceEscrowPayment(r.Context(), user.ID, id)
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) createSubscriptionDocument(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
+		return
+	}
+	subscriptionID, _ := strconv.ParseInt(r.FormValue("subscription_id"), 10, 64)
+	documentType := r.FormValue("document_type")
+	note := r.FormValue("note")
+	if err := s.store.CreateSubscriptionDocument(r.Context(), user.ID, subscriptionID, documentType, note); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) advanceSubscriptionDocument(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/subscription-documents/"), "/advance")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = s.store.AdvanceSubscriptionDocument(r.Context(), user.ID, id)
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 

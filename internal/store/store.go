@@ -133,6 +133,14 @@ func (s *Store) Migrate() error {
 			amount REAL NOT NULL,
 			status TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS subscription_documents (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			subscription_id INTEGER NOT NULL REFERENCES subscriptions(id),
+			document_type TEXT NOT NULL,
+			status TEXT NOT NULL,
+			signed_at TEXT NOT NULL,
+			note TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS holdings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			user_id INTEGER NOT NULL REFERENCES users(id),
@@ -340,6 +348,11 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO subscriptions (investor_id, deal_id, amount, status) VALUES (2, 1, 30000, 'admin_confirmed')`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES
+		(1, 'Subscription Agreement', 'sent', '', 'Demo SPV subscription agreement sent for signature'),
+		(1, 'Operating Agreement', 'drafted', '', 'SPV operating agreement package')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO holdings (user_id, company_name, source_type, cost, status) VALUES
@@ -1115,6 +1128,9 @@ func (s *Store) CreateSubscription(ctx context.Context, investorID, dealID int64
 		return err
 	}
 	id, _ := res.LastInsertId()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES (?, 'Subscription Agreement', ?, '', 'Auto-generated subscription agreement')`, id, string(domain.DocumentDrafted)); err != nil {
+		return err
+	}
 	if err := insertAudit(ctx, tx, investorID, "create_subscription", "subscription", id, "investor submitted SPV subscription"); err != nil {
 		return err
 	}
@@ -1199,6 +1215,114 @@ func (s *Store) CancelSubscription(ctx context.Context, actorID, subscriptionID 
 		return err
 	}
 	if err := insertNotification(ctx, tx, investorID, "Subscription cancelled", fmt.Sprintf("%s subscription was cancelled from %s", dealName, status)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) SubscriptionDocuments(user domain.User) ([]domain.SubscriptionDocument, error) {
+	query := `SELECT sd.id, sd.subscription_id, d.name, u.name, sd.document_type, sd.status, sd.signed_at, sd.note
+		FROM subscription_documents sd
+		JOIN subscriptions s ON s.id = sd.subscription_id
+		JOIN deals d ON d.id = s.deal_id
+		JOIN users u ON u.id = s.investor_id`
+	var rows *sql.Rows
+	var err error
+	switch user.Role {
+	case domain.RoleAdmin:
+		rows, err = s.db.Query(query + ` ORDER BY sd.id DESC`)
+	case domain.RoleInvestor, domain.RoleInstitution:
+		rows, err = s.db.Query(query+` WHERE s.investor_id = ? ORDER BY sd.id DESC`, user.ID)
+	default:
+		rows, err = s.db.Query(query + ` WHERE 1 = 0 ORDER BY sd.id DESC`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var documents []domain.SubscriptionDocument
+	for rows.Next() {
+		var document domain.SubscriptionDocument
+		if err := rows.Scan(&document.ID, &document.SubscriptionID, &document.DealName, &document.InvestorName, &document.DocumentType, &document.Status, &document.SignedAt, &document.Note); err != nil {
+			return nil, err
+		}
+		documents = append(documents, document)
+	}
+	return documents, rows.Err()
+}
+
+func (s *Store) CreateSubscriptionDocument(ctx context.Context, actorID, subscriptionID int64, documentType, note string) error {
+	if subscriptionID <= 0 || documentType == "" {
+		return fmt.Errorf("subscription and document type are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var investorID int64
+	var dealName string
+	var status domain.SubscriptionStatus
+	if err := tx.QueryRowContext(ctx, `SELECT s.investor_id, d.name, s.status FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE s.id = ?`, subscriptionID).Scan(&investorID, &dealName, &status); err != nil {
+		return err
+	}
+	if status == domain.SubscriptionCancelled {
+		return fmt.Errorf("cannot create document for cancelled subscription")
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES (?, ?, ?, '', ?)`,
+		subscriptionID, documentType, string(domain.DocumentDrafted), note)
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := insertAudit(ctx, tx, actorID, "create_subscription_document", "subscription_document", id, fmt.Sprintf("subscription #%d %s", subscriptionID, documentType)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, investorID, "Subscription document created", fmt.Sprintf("%s document %s is drafted", dealName, documentType)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) AdvanceSubscriptionDocument(ctx context.Context, actorID, documentID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var status domain.DocumentStatus
+	var investorID int64
+	var subscriptionID int64
+	var dealName string
+	var documentType string
+	if err := tx.QueryRowContext(ctx, `SELECT sd.status, s.investor_id, sd.subscription_id, d.name, sd.document_type
+		FROM subscription_documents sd
+		JOIN subscriptions s ON s.id = sd.subscription_id
+		JOIN deals d ON d.id = s.deal_id
+		WHERE sd.id = ?`, documentID).Scan(&status, &investorID, &subscriptionID, &dealName, &documentType); err != nil {
+		return err
+	}
+	next, err := domain.NextDocumentStatus(status)
+	if err != nil {
+		return err
+	}
+	signedAt := ""
+	if next == domain.DocumentSigned {
+		signedAt = time.Now().Format("2006-01-02")
+	}
+	if signedAt == "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE subscription_documents SET status = ? WHERE id = ?`, string(next), documentID); err != nil {
+			return err
+		}
+	} else {
+		if _, err := tx.ExecContext(ctx, `UPDATE subscription_documents SET status = ?, signed_at = ? WHERE id = ?`, string(next), signedAt, documentID); err != nil {
+			return err
+		}
+	}
+	if err := insertAudit(ctx, tx, actorID, "advance_subscription_document", "subscription_document", documentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, investorID, "Subscription document updated", fmt.Sprintf("%s subscription #%d %s moved from %s to %s", dealName, subscriptionID, documentType, status, next)); err != nil {
 		return err
 	}
 	return tx.Commit()

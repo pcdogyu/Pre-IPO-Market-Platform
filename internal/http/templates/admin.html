@@ -62,6 +62,16 @@
       </div>
     </section>
     <section class="grid two">
+      <form method="post" action="/admin/subscription-documents/create" class="panel stack">
+        <h2>Subscription Documents</h2>
+        <label>Subscription<select name="subscription_id">{{range .Subscriptions}}{{if not (terminalSub .Status)}}<option value="{{.ID}}">#{{.ID}} {{.DealName}} · {{.InvestorName}}</option>{{end}}{{end}}</select></label>
+        <label>Document Type<select name="document_type"><option value="Subscription Agreement">Subscription Agreement</option><option value="Operating Agreement">Operating Agreement</option><option value="Risk Disclosure">Risk Disclosure</option><option value="W-9 / Tax Form">W-9 / Tax Form</option></select></label>
+        <label>Note<input name="note" value="Subscription document package note"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <div><h2>Subscription Document Queue</h2><table><thead><tr><th>Sub</th><th>Deal</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th></th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{if and (ne .Status "archived") (ne .Status "void")}}<form method="post" action="/admin/subscription-documents/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
         <h2>Admin Counter Offer</h2>
         <input type="hidden" name="redirect" value="/admin">

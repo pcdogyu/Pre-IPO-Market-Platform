@@ -172,6 +172,17 @@ type Subscription struct {
 	Status       SubscriptionStatus
 }
 
+type SubscriptionDocument struct {
+	ID             int64
+	SubscriptionID int64
+	DealName       string
+	InvestorName   string
+	DocumentType   string
+	Status         DocumentStatus
+	SignedAt       string
+	Note           string
+}
+
 type Holding struct {
 	ID          int64
 	UserID      int64

@@ -20,6 +20,7 @@
     </section>
     <section><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Jurisdiction</th><th>Class</th><th>Units</th><th>Utilization</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Jurisdiction}}</td><td>{{.ShareClass}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td><td>{{percent .IssuedUnits .TotalUnits}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section><h2>Subscriptions</h2><table><thead><tr><th>Deal</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>Subscription Documents</h2><table><thead><tr><th>Subscription</th><th>Deal</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th>Note</th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
   </main>
 </body>
 </html>

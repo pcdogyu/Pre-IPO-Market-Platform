@@ -14,6 +14,10 @@
       <div><h2>Transactions</h2><table><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Subscriptions</h2><table><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
+    <section>
+      <h2>Subscription Documents</h2>
+      <table><thead><tr><th>Subscription</th><th>Deal</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th>Note</th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
         <h2>Transaction Counter Offer</h2>

@@ -44,6 +44,16 @@ const (
 	SubscriptionCancelled      SubscriptionStatus = "cancelled"
 )
 
+type DocumentStatus string
+
+const (
+	DocumentDrafted  DocumentStatus = "drafted"
+	DocumentSent     DocumentStatus = "sent"
+	DocumentSigned   DocumentStatus = "signed"
+	DocumentArchived DocumentStatus = "archived"
+	DocumentVoid     DocumentStatus = "void"
+)
+
 type User struct {
 	ID                  int64
 	Email               string
@@ -282,6 +292,21 @@ func NextSubscriptionStatus(status SubscriptionStatus) (SubscriptionStatus, erro
 		return status, fmt.Errorf("subscription is already terminal: %s", status)
 	default:
 		return status, fmt.Errorf("unknown subscription status: %s", status)
+	}
+}
+
+func NextDocumentStatus(status DocumentStatus) (DocumentStatus, error) {
+	switch status {
+	case DocumentDrafted:
+		return DocumentSent, nil
+	case DocumentSent:
+		return DocumentSigned, nil
+	case DocumentSigned:
+		return DocumentArchived, nil
+	case DocumentArchived, DocumentVoid:
+		return status, fmt.Errorf("document is already terminal: %s", status)
+	default:
+		return status, fmt.Errorf("unknown document status: %s", status)
 	}
 }
 

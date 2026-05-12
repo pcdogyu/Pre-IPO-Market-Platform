@@ -22,6 +22,10 @@
       </form>
       <div><h2>Negotiation History</h2><table><thead><tr><th>Txn</th><th>Actor</th><th>{{t .Lang "label.price"}}</th><th>Note</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}}</td><td>{{money .OfferPrice}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
+    <section>
+      <h2>Execution Documents</h2>
+      <table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th>Note</th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <div><h2>Valuation Updates</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>

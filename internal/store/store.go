@@ -1030,8 +1030,19 @@ func (s *Store) SPVVehicles() ([]domain.SPVVehicle, error) {
 	return vehicles, rows.Err()
 }
 
-func (s *Store) ExecutionDocuments() ([]domain.ExecutionDocument, error) {
-	rows, err := s.db.Query(`SELECT id, transaction_id, document_type, status, signed_at, note FROM execution_documents ORDER BY id DESC`)
+func (s *Store) ExecutionDocuments(user domain.User) ([]domain.ExecutionDocument, error) {
+	query := `SELECT d.id, d.transaction_id, d.document_type, d.status, d.signed_at, d.note
+		FROM execution_documents d JOIN transactions t ON t.id = d.transaction_id`
+	var rows *sql.Rows
+	var err error
+	switch user.Role {
+	case domain.RoleInvestor, domain.RoleInstitution:
+		rows, err = s.db.Query(query+` WHERE t.buyer_id = ? ORDER BY d.id DESC`, user.ID)
+	case domain.RoleSeller:
+		rows, err = s.db.Query(query+` WHERE t.seller_id = ? ORDER BY d.id DESC`, user.ID)
+	default:
+		rows, err = s.db.Query(query + ` ORDER BY d.id DESC`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1045,6 +1056,74 @@ func (s *Store) ExecutionDocuments() ([]domain.ExecutionDocument, error) {
 		documents = append(documents, document)
 	}
 	return documents, rows.Err()
+}
+
+func (s *Store) CreateExecutionDocument(ctx context.Context, actorID, transactionID int64, documentType, note string) error {
+	if transactionID <= 0 || documentType == "" {
+		return fmt.Errorf("transaction and document type are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var stage domain.TransactionStage
+	if err := tx.QueryRowContext(ctx, `SELECT stage FROM transactions WHERE id = ?`, transactionID).Scan(&stage); err != nil {
+		return err
+	}
+	if stage == domain.StageCancelled {
+		return fmt.Errorf("cannot add document to cancelled transaction")
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO execution_documents (transaction_id, document_type, status, signed_at, note) VALUES (?, ?, ?, '', ?)`,
+		transactionID, documentType, string(domain.DocumentDrafted), note)
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET document_status = ? WHERE id = ?`, string(domain.DocumentDrafted), transactionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "create_execution_document", "execution_document", id, fmt.Sprintf("transaction #%d %s", transactionID, documentType)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) AdvanceExecutionDocument(ctx context.Context, actorID, documentID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var status domain.DocumentStatus
+	var transactionID int64
+	if err := tx.QueryRowContext(ctx, `SELECT status, transaction_id FROM execution_documents WHERE id = ?`, documentID).Scan(&status, &transactionID); err != nil {
+		return err
+	}
+	next, err := domain.NextDocumentStatus(status)
+	if err != nil {
+		return err
+	}
+	signedAt := ""
+	if next == domain.DocumentSigned {
+		signedAt = time.Now().Format("2006-01-02")
+	}
+	if signedAt == "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE execution_documents SET status = ? WHERE id = ?`, string(next), documentID); err != nil {
+			return err
+		}
+	} else {
+		if _, err := tx.ExecContext(ctx, `UPDATE execution_documents SET status = ?, signed_at = ? WHERE id = ?`, string(next), signedAt, documentID); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET document_status = ? WHERE id = ?`, string(next), transactionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "advance_execution_document", "execution_document", documentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) Valuations() ([]domain.ValuationRecord, error) {

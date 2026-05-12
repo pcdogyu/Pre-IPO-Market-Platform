@@ -75,7 +75,11 @@
     </section>
     <section class="grid two">
       <div><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Manager</th><th>Units</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Manager}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
-      <div><h2>Execution Documents</h2><table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div>
+        <h2>Execution Documents</h2>
+        <form method="post" action="/admin/documents/create" class="inline-form wide-inline"><select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}}</option>{{end}}{{end}}</select><select name="document_type"><option value="NDA">NDA</option><option value="SPA">SPA</option><option value="ROFR Notice">ROFR Notice</option><option value="Transfer Instruction">Transfer Instruction</option></select><input name="note" value="Document package note"><button>{{t .Lang "form.submit"}}</button></form>
+        <table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th></th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{if and (ne .Status "archived") (ne .Status "void")}}<form method="post" action="/admin/documents/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
     </section>
     <section class="grid two">
       <div><h2>Post-Investment Valuations</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>

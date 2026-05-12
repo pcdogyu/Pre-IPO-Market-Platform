@@ -224,3 +224,25 @@ func TestUserCanCreateNegotiation(t *testing.T) {
 		t.Fatalf("negotiation status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 }
+
+func TestAdminCanManageExecutionDocuments(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"transaction_id": {"1"}, "document_type": {"Transfer Instruction"}, "note": {"Transfer packet"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/documents/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create document status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/admin/documents/1/advance", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("advance document status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}

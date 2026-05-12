@@ -61,3 +61,20 @@ func TestSubscriptionValidationAndFlow(t *testing.T) {
 		t.Fatal("active subscription should be terminal")
 	}
 }
+
+func TestDocumentStatusFlow(t *testing.T) {
+	status := DocumentDrafted
+	for _, want := range []DocumentStatus{DocumentSent, DocumentSigned, DocumentArchived} {
+		next, err := NextDocumentStatus(status)
+		if err != nil {
+			t.Fatalf("advance %s: %v", status, err)
+		}
+		if next != want {
+			t.Fatalf("got %s, want %s", next, want)
+		}
+		status = next
+	}
+	if _, err := NextDocumentStatus(DocumentArchived); err == nil {
+		t.Fatal("archived document should be terminal")
+	}
+}

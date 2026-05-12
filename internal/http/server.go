@@ -97,6 +97,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
 	mux.HandleFunc("/admin/deals/create", s.requireAdmin(s.createDeal))
 	mux.HandleFunc("/admin/matches/create", s.requireAdmin(s.createMatch))
+	mux.HandleFunc("/admin/documents/create", s.requireAdmin(s.createDocument))
+	mux.HandleFunc("/admin/documents/", s.requireAdmin(s.advanceDocument))
 	mux.HandleFunc("/admin/valuations/create", s.requireAdmin(s.createValuation))
 	mux.HandleFunc("/admin/exits/create", s.requireAdmin(s.createExitEvent))
 	mux.HandleFunc("/admin/distributions/create", s.requireAdmin(s.createDistribution))
@@ -421,13 +423,14 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	holdings, _ := s.store.Holdings(user.ID)
 	transactions, _ := s.store.Transactions(user)
 	negotiations, _ := s.store.Negotiations(user)
+	documents, _ := s.store.ExecutionDocuments(user)
 	subscriptions, _ := s.store.Subscriptions(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
 	distributions, _ := s.store.Distributions(user.ID)
 	reports, _ := s.store.Reports(user.ID)
 	tickets, _ := s.store.SupportTickets(user.ID, false)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets})
 }
 
 func (s *Server) createSupportTicket(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -460,7 +463,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	deals, _ := s.store.Deals()
 	spvs, _ := s.store.SPVVehicles()
 	subscriptions, _ := s.store.Subscriptions(user)
-	documents, _ := s.store.ExecutionDocuments()
+	documents, _ := s.store.ExecutionDocuments(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
 	riskAlerts, _ := s.store.RiskAlerts()
@@ -486,6 +489,40 @@ func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain
 		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
 		return
 	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) createDocument(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
+		return
+	}
+	transactionID, _ := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	documentType := r.FormValue("document_type")
+	note := r.FormValue("note")
+	if err := s.store.CreateExecutionDocument(r.Context(), user.ID, transactionID, documentType, note); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) advanceDocument(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/documents/"), "/advance")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = s.store.AdvanceExecutionDocument(r.Context(), user.ID, id)
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 

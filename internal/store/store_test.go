@@ -289,3 +289,45 @@ func TestNegotiationWorkflows(t *testing.T) {
 		t.Fatalf("admin negotiation: %v", err)
 	}
 }
+
+func TestExecutionDocumentWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	if err := s.CreateExecutionDocument(context.Background(), admin.ID, 1, "Transfer Instruction", "Transfer packet"); err != nil {
+		t.Fatalf("create execution document: %v", err)
+	}
+	docs, err := s.ExecutionDocuments(admin)
+	if err != nil {
+		t.Fatalf("execution documents: %v", err)
+	}
+	var created domain.ExecutionDocument
+	for _, doc := range docs {
+		if doc.DocumentType == "Transfer Instruction" {
+			created = doc
+			break
+		}
+	}
+	if created.ID == 0 {
+		t.Fatal("expected created document")
+	}
+	if err := s.AdvanceExecutionDocument(context.Background(), admin.ID, created.ID); err != nil {
+		t.Fatalf("advance document to sent: %v", err)
+	}
+	if err := s.AdvanceExecutionDocument(context.Background(), admin.ID, created.ID); err != nil {
+		t.Fatalf("advance document to signed: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	investorDocs, err := s.ExecutionDocuments(investor)
+	if err != nil {
+		t.Fatalf("investor documents: %v", err)
+	}
+	if len(investorDocs) == 0 {
+		t.Fatal("investor should see documents for their transaction")
+	}
+}

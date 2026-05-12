@@ -212,6 +212,19 @@ type Distribution struct {
 	TaxDocument string
 }
 
+type CapitalCall struct {
+	ID        int64
+	UserID    int64
+	UserName  string
+	DealID    int64
+	DealName  string
+	Amount    float64
+	DueDate   string
+	Status    string
+	Notice    string
+	CreatedAt string
+}
+
 type InvestorReport struct {
 	ID         int64
 	UserID     int64

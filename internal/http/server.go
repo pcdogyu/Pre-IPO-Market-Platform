@@ -45,6 +45,7 @@ type pageData struct {
 	Valuations    []domain.ValuationRecord
 	ExitEvents    []domain.ExitEvent
 	Distributions []domain.Distribution
+	CapitalCalls  []domain.CapitalCall
 	Reports       []domain.InvestorReport
 	Notifications []domain.Notification
 	RiskAlerts    []domain.RiskAlert
@@ -95,6 +96,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/deals", s.requireAuth(s.deals))
 	mux.HandleFunc("/deals/", s.requireAuth(s.dealActions))
 	mux.HandleFunc("/portfolio", s.requireAuth(s.portfolio))
+	mux.HandleFunc("/capital-calls/", s.requireAuth(s.confirmCapitalCall))
 	mux.HandleFunc("/support/tickets", s.requireAuth(s.createSupportTicket))
 	mux.HandleFunc("/admin", s.requireAdmin(s.admin))
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
@@ -105,6 +107,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/valuations/create", s.requireAdmin(s.createValuation))
 	mux.HandleFunc("/admin/exits/create", s.requireAdmin(s.createExitEvent))
 	mux.HandleFunc("/admin/distributions/create", s.requireAdmin(s.createDistribution))
+	mux.HandleFunc("/admin/capital-calls/create", s.requireAdmin(s.createCapitalCall))
 	mux.HandleFunc("/admin/reports/create", s.requireAdmin(s.createReport))
 	mux.HandleFunc("/admin/risks/create", s.requireAdmin(s.createRiskAlert))
 	mux.HandleFunc("/admin/risks/", s.requireAdmin(s.resolveRiskAlert))
@@ -464,10 +467,26 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
 	distributions, _ := s.store.Distributions(user.ID)
+	capitalCalls, _ := s.store.CapitalCalls(user)
 	reports, _ := s.store.Reports(user.ID)
 	tickets, _ := s.store.SupportTickets(user.ID, false)
 	notifications, _ := s.store.Notifications(user.ID, 8)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets, Notifications: notifications})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, Reports: reports, Tickets: tickets, Notifications: notifications})
+}
+
+func (s *Server) confirmCapitalCall(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/confirm") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/capital-calls/"), "/confirm")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = s.store.ConfirmCapitalCall(r.Context(), user.ID, id)
+	http.Redirect(w, r, "/portfolio", http.StatusSeeOther)
 }
 
 func (s *Server) createSupportTicket(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -503,10 +522,11 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	documents, _ := s.store.ExecutionDocuments(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
+	capitalCalls, _ := s.store.CapitalCalls(user)
 	riskAlerts, _ := s.store.RiskAlerts()
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, Documents: documents, Valuations: valuations, ExitEvents: exitEvents, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, Documents: documents, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -630,6 +650,26 @@ func (s *Server) createDistribution(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	if err := s.store.CreateDistribution(r.Context(), user.ID, distribution); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) createCapitalCall(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
+		return
+	}
+	userID, _ := strconv.ParseInt(r.FormValue("user_id"), 10, 64)
+	dealID, _ := strconv.ParseInt(r.FormValue("deal_id"), 10, 64)
+	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
+	call := domain.CapitalCall{UserID: userID, DealID: dealID, Amount: amount, DueDate: r.FormValue("due_date"), Notice: r.FormValue("notice")}
+	if err := s.store.CreateCapitalCall(r.Context(), user.ID, call); err != nil {
 		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
 		return
 	}

@@ -470,3 +470,52 @@ func TestNotificationWorkflow(t *testing.T) {
 		}
 	}
 }
+
+func TestCapitalCallWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.CreateCapitalCall(context.Background(), admin.ID, domain.CapitalCall{
+		UserID:  investor.ID,
+		DealID:  1,
+		Amount:  7500,
+		DueDate: "2026-08-01",
+		Notice:  "Follow-on capital call",
+	}); err != nil {
+		t.Fatalf("create capital call: %v", err)
+	}
+	calls, err := s.CapitalCalls(investor)
+	if err != nil {
+		t.Fatalf("capital calls: %v", err)
+	}
+	var callID int64
+	for _, call := range calls {
+		if call.Amount == 7500 && call.Status == "pending" {
+			callID = call.ID
+		}
+	}
+	if callID == 0 {
+		t.Fatal("expected pending capital call")
+	}
+	if err := s.ConfirmCapitalCall(context.Background(), investor.ID, callID); err != nil {
+		t.Fatalf("confirm capital call: %v", err)
+	}
+	calls, err = s.CapitalCalls(investor)
+	if err != nil {
+		t.Fatalf("capital calls after confirm: %v", err)
+	}
+	for _, call := range calls {
+		if call.ID == callID && call.Status != "funded" {
+			t.Fatalf("capital call status got %s, want funded", call.Status)
+		}
+	}
+	if err := s.ConfirmCapitalCall(context.Background(), 999, callID); err == nil {
+		t.Fatal("other user should not confirm capital call")
+	}
+}

@@ -183,6 +183,16 @@ func (s *Store) Migrate() error {
 			status TEXT NOT NULL,
 			tax_document TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS capital_calls (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id),
+			deal_id INTEGER NOT NULL REFERENCES deals(id),
+			amount REAL NOT NULL,
+			due_date TEXT NOT NULL,
+			status TEXT NOT NULL,
+			notice TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS investor_reports (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			user_id INTEGER NOT NULL REFERENCES users(id),
@@ -342,6 +352,10 @@ func (s *Store) SeedDemoData() error {
 	}
 	if _, err := tx.Exec(`INSERT INTO distributions (user_id, holding_id, amount, status, tax_document) VALUES
 		(2, 2, 0, 'not_due', 'K-1 pending')`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO capital_calls (user_id, deal_id, amount, due_date, status, notice, created_at) VALUES
+		(2, 1, 5000, '2026-07-15', 'pending', 'Initial capital call for HelioGrid SPV I.', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO investor_reports (user_id, report_type, title, period, status) VALUES
@@ -1275,6 +1289,81 @@ func (s *Store) Distributions(userID int64) ([]domain.Distribution, error) {
 		distributions = append(distributions, distribution)
 	}
 	return distributions, rows.Err()
+}
+
+func (s *Store) CapitalCalls(user domain.User) ([]domain.CapitalCall, error) {
+	query := `SELECT cc.id, cc.user_id, u.name, cc.deal_id, d.name, cc.amount, cc.due_date, cc.status, cc.notice, cc.created_at
+		FROM capital_calls cc JOIN users u ON u.id = cc.user_id JOIN deals d ON d.id = cc.deal_id`
+	var rows *sql.Rows
+	var err error
+	if user.Role == domain.RoleAdmin {
+		rows, err = s.db.Query(query + ` ORDER BY cc.id DESC`)
+	} else {
+		rows, err = s.db.Query(query+` WHERE cc.user_id = ? ORDER BY cc.id DESC`, user.ID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var calls []domain.CapitalCall
+	for rows.Next() {
+		var call domain.CapitalCall
+		if err := rows.Scan(&call.ID, &call.UserID, &call.UserName, &call.DealID, &call.DealName, &call.Amount, &call.DueDate, &call.Status, &call.Notice, &call.CreatedAt); err != nil {
+			return nil, err
+		}
+		calls = append(calls, call)
+	}
+	return calls, rows.Err()
+}
+
+func (s *Store) CreateCapitalCall(ctx context.Context, actorID int64, call domain.CapitalCall) error {
+	if call.UserID <= 0 || call.DealID <= 0 || call.Amount <= 0 || call.DueDate == "" {
+		return fmt.Errorf("user, deal, amount and due date are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `INSERT INTO capital_calls (user_id, deal_id, amount, due_date, status, notice, created_at) VALUES (?, ?, ?, ?, 'pending', ?, ?)`,
+		call.UserID, call.DealID, call.Amount, call.DueDate, call.Notice, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := insertAudit(ctx, tx, actorID, "create_capital_call", "capital_call", id, fmt.Sprintf("amount %.2f due %s", call.Amount, call.DueDate)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, call.UserID, "Capital call issued", fmt.Sprintf("A capital call of %.2f is due on %s", call.Amount, call.DueDate)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) ConfirmCapitalCall(ctx context.Context, userID, callID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var status string
+	var amount float64
+	if err := tx.QueryRowContext(ctx, `SELECT status, amount FROM capital_calls WHERE id = ? AND user_id = ?`, callID, userID).Scan(&status, &amount); err != nil {
+		return err
+	}
+	if status != "pending" {
+		return fmt.Errorf("capital call is not pending")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE capital_calls SET status = 'funded' WHERE id = ? AND user_id = ?`, callID, userID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, userID, "confirm_capital_call", "capital_call", callID, fmt.Sprintf("funded %.2f", amount)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, userID, "Capital call funded", fmt.Sprintf("Your capital call of %.2f was marked funded", amount)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) CreateDistribution(ctx context.Context, actorID int64, distribution domain.Distribution) error {

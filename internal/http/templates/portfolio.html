@@ -38,6 +38,10 @@
       <div><h2>Distributions & Tax</h2><table><thead><tr><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Tax Document</th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.TaxDocument}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Reports</h2><table><thead><tr><th>Title</th><th>Period</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.Title}}</td><td>{{.Period}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
+    <section>
+      <h2>Capital Calls</h2>
+      <table><thead><tr><th>Deal</th><th>{{t .Lang "label.amount"}}</th><th>Due</th><th>{{t .Lang "label.status"}}</th><th>Notice</th><th></th></tr></thead><tbody>{{range .CapitalCalls}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{.DueDate}}</td><td>{{.Status}}</td><td>{{.Notice}}</td><td>{{if eq .Status "pending"}}<form method="post" action="/capital-calls/{{.ID}}/confirm"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <form method="post" action="/support/tickets" class="panel stack"><h2>Support Ticket</h2><label>Subject<input name="subject" required></label><label>Note<input name="note"></label><button>{{t .Lang "form.submit"}}</button></form>
       <div><h2>My Tickets</h2><table><thead><tr><th>Subject</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.Subject}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="2">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>

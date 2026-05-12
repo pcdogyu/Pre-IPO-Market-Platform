@@ -278,3 +278,26 @@ func TestUserCanMarkNotificationRead(t *testing.T) {
 		t.Fatalf("notification read all status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 }
+
+func TestCapitalCallRoutes(t *testing.T) {
+	app := testApp(t)
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"user_id": {"2"}, "deal_id": {"1"}, "amount": {"7500"}, "due_date": {"2026-08-01"}, "notice": {"Follow-on capital call"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/capital-calls/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create capital call status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	req = httptest.NewRequest(http.MethodPost, "/capital-calls/1/confirm", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("confirm capital call status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}

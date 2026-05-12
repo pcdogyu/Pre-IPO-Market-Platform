@@ -114,6 +114,87 @@ func TestCreateMatchedTransaction(t *testing.T) {
 	}
 }
 
+func TestUsersCanCancelOpenOrders(t *testing.T) {
+	s := testStore(t)
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	seller, err := s.Authenticate("seller@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate seller: %v", err)
+	}
+	if err := s.CreateSellOrder(context.Background(), seller.ID, 2, 400, 19); err != nil {
+		t.Fatalf("create sell order: %v", err)
+	}
+	if err := s.CreateBuyInterest(context.Background(), investor.ID, 2, 25000, 19); err != nil {
+		t.Fatalf("create buy interest: %v", err)
+	}
+	orders, err := s.SellOrders(seller)
+	if err != nil {
+		t.Fatalf("sell orders: %v", err)
+	}
+	interests, err := s.BuyInterests(investor)
+	if err != nil {
+		t.Fatalf("buy interests: %v", err)
+	}
+	var orderID int64
+	for _, order := range orders {
+		if order.CompanyID == 2 && order.Shares == 400 && order.Status == "open" {
+			orderID = order.ID
+			break
+		}
+	}
+	var interestID int64
+	for _, interest := range interests {
+		if interest.CompanyID == 2 && interest.Amount == 25000 && interest.Status == string(domain.StageInterestSubmitted) {
+			interestID = interest.ID
+			break
+		}
+	}
+	if orderID == 0 || interestID == 0 {
+		t.Fatalf("expected open order and interest, got order=%d interest=%d", orderID, interestID)
+	}
+	if err := s.CancelSellOrder(context.Background(), seller.ID, orderID); err != nil {
+		t.Fatalf("cancel sell order: %v", err)
+	}
+	if err := s.CancelBuyInterest(context.Background(), investor.ID, interestID); err != nil {
+		t.Fatalf("cancel buy interest: %v", err)
+	}
+	if err := s.CancelSellOrder(context.Background(), seller.ID, orderID); err == nil {
+		t.Fatal("cancelled sell order should not cancel again")
+	}
+	if err := s.CancelBuyInterest(context.Background(), investor.ID, interestID); err == nil {
+		t.Fatal("cancelled buy interest should not cancel again")
+	}
+	orders, err = s.SellOrders(seller)
+	if err != nil {
+		t.Fatalf("sell orders after cancel: %v", err)
+	}
+	interests, err = s.BuyInterests(investor)
+	if err != nil {
+		t.Fatalf("buy interests after cancel: %v", err)
+	}
+	var foundCancelledOrder bool
+	for _, order := range orders {
+		if order.ID == orderID && order.Status == "cancelled" {
+			foundCancelledOrder = true
+		}
+	}
+	var foundCancelledInterest bool
+	for _, interest := range interests {
+		if interest.ID == interestID && interest.Status == "cancelled" {
+			foundCancelledInterest = true
+		}
+	}
+	if !foundCancelledOrder || !foundCancelledInterest {
+		t.Fatal("expected cancelled order and interest")
+	}
+	if err := s.CancelSellOrder(context.Background(), investor.ID, 1); err == nil {
+		t.Fatal("non-owner should not cancel sell order")
+	}
+}
+
 func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin@demo.local", "demo123")

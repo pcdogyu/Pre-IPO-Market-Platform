@@ -104,7 +104,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/watchlist/add", s.requireAuth(s.addWatchlist))
 	mux.HandleFunc("/watchlist/remove", s.requireAuth(s.removeWatchlist))
 	mux.HandleFunc("/market/orders", s.requireAuth(s.market))
+	mux.HandleFunc("/orders/sell/cancel", s.requireAuth(s.cancelSellOrder))
 	mux.HandleFunc("/orders/sell", s.requireAuth(s.createSellOrder))
+	mux.HandleFunc("/orders/buy-interest/cancel", s.requireAuth(s.cancelBuyInterest))
 	mux.HandleFunc("/orders/buy-interest", s.requireAuth(s.createBuyInterest))
 	mux.HandleFunc("/negotiations/create", s.requireAuth(s.createNegotiation))
 	mux.HandleFunc("/deals", s.requireAuth(s.deals))
@@ -422,6 +424,27 @@ func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user do
 	http.Redirect(w, r, "/market/orders", http.StatusSeeOther)
 }
 
+func (s *Server) cancelSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !domain.CanSubmitSellOrder(user) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/market/orders?error=form", http.StatusSeeOther)
+		return
+	}
+	orderID, _ := strconv.ParseInt(r.FormValue("order_id"), 10, 64)
+	if err := s.store.CancelSellOrder(r.Context(), user.ID, orderID); err != nil {
+		http.Redirect(w, r, "/market/orders?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/market/orders", http.StatusSeeOther)
+}
+
 func (s *Server) createBuyInterest(w http.ResponseWriter, r *http.Request, user domain.User) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -444,6 +467,27 @@ func (s *Server) createBuyInterest(w http.ResponseWriter, r *http.Request, user 
 	}
 	if err := s.store.CreateBuyInterest(r.Context(), user.ID, companyID, amount, price); err != nil {
 		http.Redirect(w, r, "/market/orders?error=create", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/market/orders", http.StatusSeeOther)
+}
+
+func (s *Server) cancelBuyInterest(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !domain.CanSubmitBuyInterest(user) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/market/orders?error=form", http.StatusSeeOther)
+		return
+	}
+	interestID, _ := strconv.ParseInt(r.FormValue("interest_id"), 10, 64)
+	if err := s.store.CancelBuyInterest(r.Context(), user.ID, interestID); err != nil {
+		http.Redirect(w, r, "/market/orders?error="+urlSafe(err.Error()), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/market/orders", http.StatusSeeOther)

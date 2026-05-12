@@ -74,6 +74,42 @@ func TestSellerCanSubmitSellOrder(t *testing.T) {
 	}
 }
 
+func TestUsersCanCancelOpenOrders(t *testing.T) {
+	app := testApp(t)
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	form := url.Values{"interest_id": {"1"}}
+	req := httptest.NewRequest(http.MethodPost, "/orders/buy-interest/cancel", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(investorCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("cancel buy interest status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	sellerCookie := loginCookie(t, app, "seller@demo.local")
+	form = url.Values{"order_id": {"1"}}
+	req = httptest.NewRequest(http.MethodPost, "/orders/sell/cancel", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(sellerCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("cancel sell order status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/market/orders", nil)
+	req.AddCookie(sellerCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "cancelled") {
+		t.Fatal("market should render cancelled order status")
+	}
+}
+
 func TestInvestorCannotAccessAdmin(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor@demo.local")

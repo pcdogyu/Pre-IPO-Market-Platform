@@ -1061,6 +1061,33 @@ func (s *Store) CreateSellOrder(ctx context.Context, sellerID, companyID, shares
 	return tx.Commit()
 }
 
+func (s *Store) CancelSellOrder(ctx context.Context, sellerID, orderID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var companyName string
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT c.name, so.status FROM sell_orders so JOIN companies c ON c.id = so.company_id WHERE so.id = ? AND so.seller_id = ?`, orderID, sellerID).
+		Scan(&companyName, &status); err != nil {
+		return err
+	}
+	if status != "open" {
+		return fmt.Errorf("sell order is not open")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE sell_orders SET status = 'cancelled' WHERE id = ? AND seller_id = ?`, orderID, sellerID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, sellerID, "cancel_sell_order", "sell_order", orderID, "seller cancelled open order"); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Sell order cancelled", fmt.Sprintf("%s sell order was cancelled", companyName)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) CreateBuyInterest(ctx context.Context, investorID, companyID int64, amount, price float64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1073,6 +1100,33 @@ func (s *Store) CreateBuyInterest(ctx context.Context, investorID, companyID int
 	}
 	id, _ := res.LastInsertId()
 	if err := insertAudit(ctx, tx, investorID, "create_buy_interest", "buy_interest", id, "investor submitted buy interest"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) CancelBuyInterest(ctx context.Context, investorID, interestID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var companyName string
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT c.name, bi.status FROM buy_interests bi JOIN companies c ON c.id = bi.company_id WHERE bi.id = ? AND bi.investor_id = ?`, interestID, investorID).
+		Scan(&companyName, &status); err != nil {
+		return err
+	}
+	if status != string(domain.StageInterestSubmitted) {
+		return fmt.Errorf("buy interest is not open")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE buy_interests SET status = 'cancelled' WHERE id = ? AND investor_id = ?`, interestID, investorID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, investorID, "cancel_buy_interest", "buy_interest", interestID, "investor cancelled buy interest"); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, investorID, "Buy interest cancelled", fmt.Sprintf("%s buy interest was cancelled", companyName)); err != nil {
 		return err
 	}
 	return tx.Commit()

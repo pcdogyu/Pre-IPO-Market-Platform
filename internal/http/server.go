@@ -607,47 +607,89 @@ func (s *Server) closeTicket(w http.ResponseWriter, r *http.Request, user domain
 }
 
 func (s *Server) approveReview(w http.ResponseWriter, r *http.Request, user domain.User) {
-	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/approve") {
+	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
 		return
 	}
-	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/reviews/"), "/approve")
+	action := ""
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/approve"):
+		action = "approve"
+	case strings.HasSuffix(r.URL.Path, "/reject"):
+		action = "reject"
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/reviews/"), "/approve"), "/reject")
 	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	_ = s.store.ApproveUser(r.Context(), user.ID, id)
+	if action == "approve" {
+		_ = s.store.ApproveUser(r.Context(), user.ID, id)
+	} else {
+		_ = s.store.RejectUser(r.Context(), user.ID, id)
+	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (s *Server) advanceTransaction(w http.ResponseWriter, r *http.Request, user domain.User) {
-	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
 		return
 	}
-	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/transactions/"), "/advance")
+	action := ""
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/advance"):
+		action = "advance"
+	case strings.HasSuffix(r.URL.Path, "/cancel"):
+		action = "cancel"
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/transactions/"), "/advance"), "/cancel")
 	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	_ = s.store.AdvanceTransaction(r.Context(), user.ID, id)
+	if action == "advance" {
+		_ = s.store.AdvanceTransaction(r.Context(), user.ID, id)
+	} else {
+		_ = s.store.CancelTransaction(r.Context(), user.ID, id)
+	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (s *Server) advanceSubscription(w http.ResponseWriter, r *http.Request, user domain.User) {
-	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
 		return
 	}
-	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/subscriptions/"), "/advance")
+	action := ""
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/advance"):
+		action = "advance"
+	case strings.HasSuffix(r.URL.Path, "/cancel"):
+		action = "cancel"
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/subscriptions/"), "/advance"), "/cancel")
 	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	_ = s.store.AdvanceSubscription(r.Context(), user.ID, id)
+	if action == "advance" {
+		_ = s.store.AdvanceSubscription(r.Context(), user.ID, id)
+	} else {
+		_ = s.store.CancelSubscription(r.Context(), user.ID, id)
+	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 

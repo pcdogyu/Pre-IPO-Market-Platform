@@ -207,3 +207,49 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 		t.Fatalf("close ticket: %v", err)
 	}
 }
+
+func TestRejectAndCancelWorkflows(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	if err := s.RejectUser(context.Background(), admin.ID, 5); err != nil {
+		t.Fatalf("reject user: %v", err)
+	}
+	pending, err := s.UsersPendingReview()
+	if err != nil {
+		t.Fatalf("pending users: %v", err)
+	}
+	for _, user := range pending {
+		if user.ID == 5 {
+			t.Fatal("rejected user should not remain in pending review queue")
+		}
+	}
+	if err := s.CancelTransaction(context.Background(), admin.ID, 1); err != nil {
+		t.Fatalf("cancel transaction: %v", err)
+	}
+	transactions, err := s.Transactions(admin)
+	if err != nil {
+		t.Fatalf("transactions: %v", err)
+	}
+	if transactions[len(transactions)-1].Stage != domain.StageCancelled {
+		t.Fatalf("transaction stage got %s, want %s", transactions[len(transactions)-1].Stage, domain.StageCancelled)
+	}
+	if err := s.CancelSubscription(context.Background(), admin.ID, 1); err != nil {
+		t.Fatalf("cancel subscription: %v", err)
+	}
+	subscriptions, err := s.Subscriptions(admin)
+	if err != nil {
+		t.Fatalf("subscriptions: %v", err)
+	}
+	var cancelled bool
+	for _, subscription := range subscriptions {
+		if subscription.ID == 1 && subscription.Status == domain.SubscriptionCancelled {
+			cancelled = true
+		}
+	}
+	if !cancelled {
+		t.Fatal("expected cancelled subscription")
+	}
+}

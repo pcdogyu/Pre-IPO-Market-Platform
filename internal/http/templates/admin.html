@@ -44,20 +44,20 @@
     <section>
       <h2>Review Queue</h2>
       <table><thead><tr><th>Email</th><th>{{t .Lang "label.role"}}</th><th>KYC</th><th>Accreditation</th><th></th></tr></thead><tbody>
-        {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{.Role}} · {{.RiskRating}}</td><td>{{.KYCStatus}}</td><td>AML {{.AMLStatus}} / ACC {{.AccreditationStatus}}</td><td><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
+        {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{.Role}} · {{.RiskRating}}</td><td>{{.KYCStatus}}</td><td>AML {{.AMLStatus}} / ACC {{.AccreditationStatus}}</td><td class="action-cell"><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
     <section class="grid two">
       <div>
         <h2>Transactions</h2>
         <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.status"}}</th><th>Execution</th><th></th></tr></thead><tbody>
-          {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td><td>Docs {{.DocumentStatus}} · ROFR {{.ROFRStatus}} · Approval {{.CompanyApprovalStatus}} · Escrow {{.EscrowStatus}}</td><td>{{if not (terminalTxn .Stage)}}<form method="post" action="/admin/transactions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
+          {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td><td>Docs {{.DocumentStatus}} · ROFR {{.ROFRStatus}} · Approval {{.CompanyApprovalStatus}} · Escrow {{.EscrowStatus}}</td><td class="action-cell">{{if not (terminalTxn .Stage)}}<form method="post" action="/admin/transactions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/transactions/{{.ID}}/cancel"><button class="small danger">Cancel</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
         </tbody></table>
       </div>
       <div>
         <h2>Subscriptions</h2>
         <table><thead><tr><th>Deal</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
-          {{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td><td>{{if not (terminalSub .Status)}}<form method="post" action="/admin/subscriptions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}
+          {{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td><td class="action-cell">{{if not (terminalSub .Status)}}<form method="post" action="/admin/subscriptions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/subscriptions/{{.ID}}/cancel"><button class="small danger">Cancel</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}
         </tbody></table>
       </div>
     </section>

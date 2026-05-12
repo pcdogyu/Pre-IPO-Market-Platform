@@ -444,6 +444,21 @@ func (s *Store) ApproveUser(ctx context.Context, actorID, userID int64) error {
 	return tx.Commit()
 }
 
+func (s *Store) RejectUser(ctx context.Context, actorID, userID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = 'rejected', aml_status = 'rejected', accreditation_status = 'rejected', risk_rating = 'high' WHERE id = ?`, userID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "reject_user", "user", userID, "KYC, AML and accreditation rejected"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) Companies() ([]domain.Company, error) {
 	rows, err := s.db.Query(`SELECT id, name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions FROM companies ORDER BY id`)
 	if err != nil {
@@ -697,6 +712,30 @@ func (s *Store) AdvanceTransaction(ctx context.Context, actorID, transactionID i
 	return tx.Commit()
 }
 
+func (s *Store) CancelTransaction(ctx context.Context, actorID, transactionID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var stage domain.TransactionStage
+	if err := tx.QueryRowContext(ctx, `SELECT stage FROM transactions WHERE id = ?`, transactionID).Scan(&stage); err != nil {
+		return err
+	}
+	if stage == domain.StageSettled || stage == domain.StageCancelled {
+		return fmt.Errorf("transaction is already terminal: %s", stage)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET stage = ?, document_status = 'cancelled', rofr_status = 'cancelled', company_approval_status = 'cancelled', escrow_status = 'cancelled' WHERE id = ?`,
+		string(domain.StageCancelled), transactionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "cancel_transaction", "transaction", transactionID, fmt.Sprintf("%s -> %s", stage, domain.StageCancelled)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func executionStatusesForStage(stage domain.TransactionStage) (string, string, string, string) {
 	switch stage {
 	case domain.StageMatched:
@@ -849,6 +888,29 @@ func (s *Store) AdvanceSubscription(ctx context.Context, actorID, subscriptionID
 		}
 	}
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) CancelSubscription(ctx context.Context, actorID, subscriptionID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var status domain.SubscriptionStatus
+	if err := tx.QueryRowContext(ctx, `SELECT status FROM subscriptions WHERE id = ?`, subscriptionID).Scan(&status); err != nil {
+		return err
+	}
+	if status == domain.SubscriptionActive || status == domain.SubscriptionCancelled {
+		return fmt.Errorf("subscription is already terminal: %s", status)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE subscriptions SET status = ? WHERE id = ?`, string(domain.SubscriptionCancelled), subscriptionID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "cancel_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, domain.SubscriptionCancelled)); err != nil {
 		return err
 	}
 	return tx.Commit()

@@ -191,3 +191,22 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminCanRejectAndCancel(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin@demo.local")
+
+	for _, path := range []string{
+		"/admin/reviews/5/reject",
+		"/admin/transactions/1/cancel",
+		"/admin/subscriptions/1/cancel",
+	} {
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.AddCookie(cookie)
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("%s status got %d, want %d", path, rec.Code, http.StatusSeeOther)
+		}
+	}
+}

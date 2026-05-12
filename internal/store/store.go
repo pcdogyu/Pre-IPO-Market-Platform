@@ -192,6 +192,15 @@ func (s *Store) Migrate() error {
 			signed_at TEXT NOT NULL,
 			note TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS execution_approvals (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+			approval_type TEXT NOT NULL,
+			status TEXT NOT NULL,
+			due_date TEXT NOT NULL,
+			decided_at TEXT NOT NULL,
+			note TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS escrow_payments (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			transaction_id INTEGER NOT NULL REFERENCES transactions(id),
@@ -401,6 +410,11 @@ func (s *Store) SeedDemoData() error {
 	if _, err := tx.Exec(`INSERT INTO execution_documents (transaction_id, document_type, status, signed_at, note) VALUES
 		(1, 'NDA', 'signed', ?, 'Counterparties cleared confidentiality'),
 		(1, 'SPA', 'drafted', '', 'Pending ROFR package')`, time.Now().Format("2006-01-02")); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO execution_approvals (transaction_id, approval_type, status, due_date, decided_at, note) VALUES
+		(1, 'rofr', 'pending', '2026-06-30', '', 'ROFR notice package prepared'),
+		(1, 'company_approval', 'pending', '2026-07-05', '', 'Board consent request pending')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO escrow_payments (transaction_id, amount, status, reference, note, created_at, released_at) VALUES
@@ -1701,6 +1715,130 @@ func (s *Store) AdvanceExecutionDocument(ctx context.Context, actorID, documentI
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *Store) ExecutionApprovals(user domain.User) ([]domain.ExecutionApproval, error) {
+	query := `SELECT ea.id, ea.transaction_id, c.name, ea.approval_type, ea.status, ea.due_date, ea.decided_at, ea.note
+		FROM execution_approvals ea
+		JOIN transactions t ON t.id = ea.transaction_id
+		JOIN companies c ON c.id = t.company_id`
+	var rows *sql.Rows
+	var err error
+	switch user.Role {
+	case domain.RoleInvestor, domain.RoleInstitution:
+		rows, err = s.db.Query(query+` WHERE t.buyer_id = ? ORDER BY ea.id DESC`, user.ID)
+	case domain.RoleSeller:
+		rows, err = s.db.Query(query+` WHERE t.seller_id = ? ORDER BY ea.id DESC`, user.ID)
+	default:
+		rows, err = s.db.Query(query + ` ORDER BY ea.id DESC`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var approvals []domain.ExecutionApproval
+	for rows.Next() {
+		var approval domain.ExecutionApproval
+		if err := rows.Scan(&approval.ID, &approval.TransactionID, &approval.CompanyName, &approval.ApprovalType, &approval.Status, &approval.DueDate, &approval.DecidedAt, &approval.Note); err != nil {
+			return nil, err
+		}
+		approvals = append(approvals, approval)
+	}
+	return approvals, rows.Err()
+}
+
+func (s *Store) CreateExecutionApproval(ctx context.Context, actorID int64, approval domain.ExecutionApproval) error {
+	if approval.TransactionID <= 0 || !validExecutionApprovalType(approval.ApprovalType) {
+		return fmt.Errorf("transaction and approval type are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var buyerID, sellerID int64
+	var companyName string
+	if err := tx.QueryRowContext(ctx, `SELECT t.buyer_id, t.seller_id, c.name FROM transactions t JOIN companies c ON c.id = t.company_id WHERE t.id = ?`, approval.TransactionID).Scan(&buyerID, &sellerID, &companyName); err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO execution_approvals (transaction_id, approval_type, status, due_date, decided_at, note) VALUES (?, ?, 'pending', ?, '', ?)`,
+		approval.TransactionID, approval.ApprovalType, approval.DueDate, approval.Note)
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := updateTransactionApprovalStatus(ctx, tx, approval.TransactionID, approval.ApprovalType, "pending"); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "create_execution_approval", "execution_approval", id, fmt.Sprintf("transaction #%d %s", approval.TransactionID, approval.ApprovalType)); err != nil {
+		return err
+	}
+	body := fmt.Sprintf("%s %s approval is pending", companyName, approval.ApprovalType)
+	if err := insertNotification(ctx, tx, buyerID, "Execution approval updated", body); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Execution approval updated", body); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) AdvanceExecutionApproval(ctx context.Context, actorID, approvalID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var transactionID, buyerID, sellerID int64
+	var approvalType, status, companyName string
+	if err := tx.QueryRowContext(ctx, `SELECT ea.transaction_id, t.buyer_id, t.seller_id, c.name, ea.approval_type, ea.status
+		FROM execution_approvals ea
+		JOIN transactions t ON t.id = ea.transaction_id
+		JOIN companies c ON c.id = t.company_id
+		WHERE ea.id = ?`, approvalID).Scan(&transactionID, &buyerID, &sellerID, &companyName, &approvalType, &status); err != nil {
+		return err
+	}
+	if status != "pending" {
+		return fmt.Errorf("execution approval is already resolved: %s", status)
+	}
+	next := "approved"
+	if approvalType == "rofr" {
+		next = "waived"
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE execution_approvals SET status = ?, decided_at = ? WHERE id = ?`, next, time.Now().Format(time.RFC3339), approvalID); err != nil {
+		return err
+	}
+	if err := updateTransactionApprovalStatus(ctx, tx, transactionID, approvalType, next); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "advance_execution_approval", "execution_approval", approvalID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	body := fmt.Sprintf("%s %s approval moved from %s to %s", companyName, approvalType, status, next)
+	if err := insertNotification(ctx, tx, buyerID, "Execution approval updated", body); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, sellerID, "Execution approval updated", body); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func validExecutionApprovalType(approvalType string) bool {
+	return approvalType == "rofr" || approvalType == "company_approval"
+}
+
+func updateTransactionApprovalStatus(ctx context.Context, tx *sql.Tx, transactionID int64, approvalType, status string) error {
+	switch approvalType {
+	case "rofr":
+		_, err := tx.ExecContext(ctx, `UPDATE transactions SET rofr_status = ? WHERE id = ?`, status, transactionID)
+		return err
+	case "company_approval":
+		_, err := tx.ExecContext(ctx, `UPDATE transactions SET company_approval_status = ? WHERE id = ?`, status, transactionID)
+		return err
+	default:
+		return fmt.Errorf("unknown approval type: %s", approvalType)
+	}
 }
 
 func (s *Store) EscrowPayments(user domain.User) ([]domain.EscrowPayment, error) {

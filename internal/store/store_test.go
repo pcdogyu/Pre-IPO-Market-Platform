@@ -554,6 +554,65 @@ func TestExecutionDocumentWorkflow(t *testing.T) {
 	}
 }
 
+func TestExecutionApprovalWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.CreateExecutionApproval(context.Background(), admin.ID, domain.ExecutionApproval{
+		TransactionID: 1,
+		ApprovalType:  "company_approval",
+		DueDate:       "2026-07-15",
+		Note:          "Board consent request",
+	}); err != nil {
+		t.Fatalf("create execution approval: %v", err)
+	}
+	approvals, err := s.ExecutionApprovals(investor)
+	if err != nil {
+		t.Fatalf("execution approvals: %v", err)
+	}
+	var approvalID int64
+	for _, approval := range approvals {
+		if approval.ApprovalType == "company_approval" && approval.Status == "pending" {
+			approvalID = approval.ID
+		}
+	}
+	if approvalID == 0 {
+		t.Fatal("expected pending company approval")
+	}
+	if err := s.AdvanceExecutionApproval(context.Background(), admin.ID, approvalID); err != nil {
+		t.Fatalf("advance execution approval: %v", err)
+	}
+	transactions, err := s.Transactions(admin)
+	if err != nil {
+		t.Fatalf("transactions: %v", err)
+	}
+	var synced bool
+	for _, tx := range transactions {
+		if tx.ID == 1 && tx.CompanyApprovalStatus == "approved" {
+			synced = true
+		}
+	}
+	if !synced {
+		t.Fatal("transaction company approval status should sync")
+	}
+	notifications, err := s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Title == "Execution approval updated" {
+			return
+		}
+	}
+	t.Fatal("expected execution approval notification")
+}
+
 func TestSubscriptionDocumentWorkflow(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin@demo.local", "demo123")

@@ -236,6 +236,17 @@ type ExecutionDocument struct {
 	Note          string
 }
 
+type ExecutionApproval struct {
+	ID            int64
+	TransactionID int64
+	CompanyName   string
+	ApprovalType  string
+	Status        string
+	DueDate       string
+	DecidedAt     string
+	Note          string
+}
+
 type EscrowPayment struct {
 	ID            int64
 	TransactionID int64

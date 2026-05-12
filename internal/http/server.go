@@ -46,6 +46,7 @@ type pageData struct {
 	Users             []domain.User
 	SPVs              []domain.SPVVehicle
 	Documents         []domain.ExecutionDocument
+	Approvals         []domain.ExecutionApproval
 	EscrowPayments    []domain.EscrowPayment
 	Valuations        []domain.ValuationRecord
 	ExitEvents        []domain.ExitEvent
@@ -115,6 +116,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/matches/create", s.requireAdmin(s.createMatch))
 	mux.HandleFunc("/admin/documents/create", s.requireAdmin(s.createDocument))
 	mux.HandleFunc("/admin/documents/", s.requireAdmin(s.advanceDocument))
+	mux.HandleFunc("/admin/approvals/create", s.requireAdmin(s.createApproval))
+	mux.HandleFunc("/admin/approvals/", s.requireAdmin(s.advanceApproval))
 	mux.HandleFunc("/admin/escrow-payments/create", s.requireAdmin(s.createEscrowPayment))
 	mux.HandleFunc("/admin/escrow-payments/", s.requireAdmin(s.advanceEscrowPayment))
 	mux.HandleFunc("/admin/valuations/create", s.requireAdmin(s.createValuation))
@@ -386,8 +389,9 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 	buyInterests, _ := s.store.BuyInterests(user)
 	transactions, _ := s.store.Transactions(user)
 	negotiations, _ := s.store.Negotiations(user)
+	approvals, _ := s.store.ExecutionApprovals(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, EscrowPayments: escrowPayments, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -534,6 +538,7 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	transactions, _ := s.store.Transactions(user)
 	negotiations, _ := s.store.Negotiations(user)
 	documents, _ := s.store.ExecutionDocuments(user)
+	approvals, _ := s.store.ExecutionApprovals(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
 	subscriptions, _ := s.store.Subscriptions(user)
 	subDocuments, _ := s.store.SubscriptionDocuments(user)
@@ -546,7 +551,7 @@ func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.U
 	tickets, _ := s.store.SupportTickets(user.ID, false)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, false)
 	notifications, _ := s.store.Notifications(user.ID, 8)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, TicketMessages: ticketMessages, Notifications: notifications})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Subscriptions: subscriptions, SubDocuments: subDocuments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, Tickets: tickets, TicketMessages: ticketMessages, Notifications: notifications})
 }
 
 func (s *Server) confirmCapitalCall(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -618,6 +623,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	subscriptions, _ := s.store.Subscriptions(user)
 	subDocuments, _ := s.store.SubscriptionDocuments(user)
 	documents, _ := s.store.ExecutionDocuments(user)
+	approvals, _ := s.store.ExecutionApprovals(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
@@ -627,7 +633,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -681,6 +687,44 @@ func (s *Server) advanceDocument(w http.ResponseWriter, r *http.Request, user do
 		return
 	}
 	_ = s.store.AdvanceExecutionDocument(r.Context(), user.ID, id)
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) createApproval(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
+		return
+	}
+	transactionID, _ := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	approval := domain.ExecutionApproval{
+		TransactionID: transactionID,
+		ApprovalType:  r.FormValue("approval_type"),
+		DueDate:       r.FormValue("due_date"),
+		Note:          r.FormValue("note"),
+	}
+	if err := s.store.CreateExecutionApproval(r.Context(), user.ID, approval); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) advanceApproval(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/approvals/"), "/advance")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = s.store.AdvanceExecutionApproval(r.Context(), user.ID, id)
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 

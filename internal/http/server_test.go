@@ -360,6 +360,44 @@ func TestAdminCanManageExecutionDocuments(t *testing.T) {
 	}
 }
 
+func TestAdminCanManageExecutionApprovals(t *testing.T) {
+	app := testApp(t)
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"transaction_id": {"1"}, "approval_type": {"company_approval"}, "due_date": {"2026-07-15"}, "note": {"Board consent request"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/approvals/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create approval status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/admin/approvals/1/advance", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("advance approval status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "ROFR / Company Approvals") {
+		t.Fatal("portfolio should render execution approvals")
+	}
+	if !strings.Contains(body, "Execution approval updated") {
+		t.Fatal("portfolio should render execution approval notification text")
+	}
+}
+
 func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
 	app := testApp(t)
 	adminCookie := loginCookie(t, app, "admin@demo.local")

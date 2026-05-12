@@ -35,6 +35,10 @@
       <h2>Escrow Payments</h2>
       <table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Reference</th><th>Note</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.Reference}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
+    <section>
+      <h2>ROFR / Company Approvals</h2>
+      <table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Due</th><th>Decided</th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{.ApprovalType}}</td><td>{{.Status}}</td><td>{{.DueDate}}</td><td>{{.DecidedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
         <h2>Negotiation / Counter Offer</h2>

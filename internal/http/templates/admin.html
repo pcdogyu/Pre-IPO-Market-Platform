@@ -98,6 +98,17 @@
       </div>
     </section>
     <section class="grid two">
+      <form method="post" action="/admin/approvals/create" class="panel stack">
+        <h2>ROFR / Company Approval</h2>
+        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}}</option>{{end}}{{end}}</select></label>
+        <label>Approval Type<select name="approval_type"><option value="rofr">ROFR Waiver</option><option value="company_approval">Company Approval</option></select></label>
+        <label>Due Date<input name="due_date" value="2026-07-15"></label>
+        <label>Note<input name="note" value="Approval package prepared"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <div><h2>Approval Queue</h2><table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Due</th><th></th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{.ApprovalType}}</td><td>{{.Status}}</td><td>{{.DueDate}}</td><td>{{if eq .Status "pending"}}<form method="post" action="/admin/approvals/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
       <form method="post" action="/admin/escrow-payments/create" class="panel stack">
         <h2>Escrow Payment</h2>
         <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>

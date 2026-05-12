@@ -74,6 +74,18 @@ type User struct {
 	RiskRating          string
 }
 
+type ComplianceReview struct {
+	ID          int64
+	UserID      int64
+	UserName    string
+	UserEmail   string
+	ReviewType  string
+	Status      ReviewStatus
+	Note        string
+	SubmittedAt string
+	ReviewedAt  string
+}
+
 type Company struct {
 	ID                   int64
 	Name                 string

@@ -58,6 +58,15 @@ func (s *Store) Migrate() error {
 			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			expires_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS compliance_reviews (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			review_type TEXT NOT NULL,
+			status TEXT NOT NULL,
+			note TEXT NOT NULL,
+			submitted_at TEXT NOT NULL,
+			reviewed_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS companies (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -550,6 +559,150 @@ func (s *Store) RejectUser(ctx context.Context, actorID, userID int64) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *Store) ComplianceReviews(user domain.User, limit int) ([]domain.ComplianceReview, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	query := `SELECT cr.id, cr.user_id, u.name, u.email, cr.review_type, cr.status, cr.note, cr.submitted_at, cr.reviewed_at
+		FROM compliance_reviews cr JOIN users u ON u.id = cr.user_id`
+	var rows *sql.Rows
+	var err error
+	if user.Role == domain.RoleAdmin {
+		rows, err = s.db.Query(query+` ORDER BY cr.id DESC LIMIT ?`, limit)
+	} else {
+		rows, err = s.db.Query(query+` WHERE cr.user_id = ? ORDER BY cr.id DESC LIMIT ?`, user.ID, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var reviews []domain.ComplianceReview
+	for rows.Next() {
+		var review domain.ComplianceReview
+		if err := rows.Scan(&review.ID, &review.UserID, &review.UserName, &review.UserEmail, &review.ReviewType, &review.Status, &review.Note, &review.SubmittedAt, &review.ReviewedAt); err != nil {
+			return nil, err
+		}
+		reviews = append(reviews, review)
+	}
+	return reviews, rows.Err()
+}
+
+func (s *Store) CreateComplianceReview(ctx context.Context, userID int64, reviewType, note string) error {
+	if userID <= 0 || !validComplianceReviewType(reviewType) {
+		return fmt.Errorf("valid user and review type are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `INSERT INTO compliance_reviews (user_id, review_type, status, note, submitted_at, reviewed_at) VALUES (?, ?, ?, ?, ?, '')`,
+		userID, reviewType, string(domain.ReviewPending), note, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := markCompliancePending(ctx, tx, userID, reviewType); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, userID, "create_compliance_review", "compliance_review", id, reviewType); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, userID, "Compliance review submitted", fmt.Sprintf("%s review is pending", reviewType)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) ResolveComplianceReview(ctx context.Context, actorID, reviewID int64, approve bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var userID int64
+	var reviewType string
+	var status domain.ReviewStatus
+	if err := tx.QueryRowContext(ctx, `SELECT user_id, review_type, status FROM compliance_reviews WHERE id = ?`, reviewID).Scan(&userID, &reviewType, &status); err != nil {
+		return err
+	}
+	if status != domain.ReviewPending {
+		return fmt.Errorf("compliance review is already resolved: %s", status)
+	}
+	next := domain.ReviewRejected
+	if approve {
+		next = domain.ReviewApproved
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE compliance_reviews SET status = ?, reviewed_at = ? WHERE id = ?`, string(next), time.Now().Format(time.RFC3339), reviewID); err != nil {
+		return err
+	}
+	if err := applyComplianceResult(ctx, tx, userID, reviewType, next); err != nil {
+		return err
+	}
+	action := "reject_compliance_review"
+	if approve {
+		action = "approve_compliance_review"
+	}
+	if err := insertAudit(ctx, tx, actorID, action, "compliance_review", reviewID, fmt.Sprintf("%s -> %s", reviewType, next)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, userID, "Compliance review resolved", fmt.Sprintf("%s review was %s", reviewType, next)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func validComplianceReviewType(reviewType string) bool {
+	switch reviewType {
+	case "kyc", "aml", "accreditation", "all":
+		return true
+	default:
+		return false
+	}
+}
+
+func markCompliancePending(ctx context.Context, tx *sql.Tx, userID int64, reviewType string) error {
+	switch reviewType {
+	case "kyc":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = ? WHERE id = ?`, string(domain.ReviewPending), userID)
+		return err
+	case "aml":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET aml_status = ? WHERE id = ?`, string(domain.ReviewPending), userID)
+		return err
+	case "accreditation":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET accreditation_status = ? WHERE id = ?`, string(domain.ReviewPending), userID)
+		return err
+	case "all":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = ?, aml_status = ?, accreditation_status = ? WHERE id = ?`, string(domain.ReviewPending), string(domain.ReviewPending), string(domain.ReviewPending), userID)
+		return err
+	default:
+		return fmt.Errorf("unknown compliance review type: %s", reviewType)
+	}
+}
+
+func applyComplianceResult(ctx context.Context, tx *sql.Tx, userID int64, reviewType string, status domain.ReviewStatus) error {
+	riskRating := "medium"
+	if status == domain.ReviewRejected {
+		riskRating = "high"
+	}
+	switch reviewType {
+	case "kyc":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = ?, risk_rating = ? WHERE id = ?`, string(status), riskRating, userID)
+		return err
+	case "aml":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET aml_status = ?, risk_rating = ? WHERE id = ?`, string(status), riskRating, userID)
+		return err
+	case "accreditation":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET accreditation_status = ?, risk_rating = ? WHERE id = ?`, string(status), riskRating, userID)
+		return err
+	case "all":
+		_, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = ?, aml_status = ?, accreditation_status = ?, risk_rating = ? WHERE id = ?`, string(status), string(status), string(status), riskRating, userID)
+		return err
+	default:
+		return fmt.Errorf("unknown compliance review type: %s", reviewType)
+	}
 }
 
 func (s *Store) Companies() ([]domain.Company, error) {

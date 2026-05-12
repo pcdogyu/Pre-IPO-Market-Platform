@@ -86,6 +86,45 @@ func TestInvestorCannotAccessAdmin(t *testing.T) {
 	}
 }
 
+func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
+	app := testApp(t)
+	userCookie := loginCookie(t, app, "pending@demo.local")
+	form := url.Values{"review_type": {"all"}, "note": {"Updated compliance package"}}
+	req := httptest.NewRequest(http.MethodPost, "/compliance/reviews/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(userCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create compliance review status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	req = httptest.NewRequest(http.MethodPost, "/admin/compliance-reviews/1/approve", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("approve compliance review status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	userCookie = loginCookie(t, app, "pending@demo.local")
+	req = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(userCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Compliance Reviews") {
+		t.Fatal("dashboard should render compliance reviews")
+	}
+	if !strings.Contains(body, "approved") {
+		t.Fatal("dashboard should show approved compliance review")
+	}
+}
+
 func TestInvestorCanSubscribeToDeal(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor@demo.local")

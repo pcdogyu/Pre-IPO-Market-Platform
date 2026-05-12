@@ -24,12 +24,22 @@
       <div><p class="eyebrow">{{.User.Email}}</p><h1>{{t .Lang "dashboard.title"}}</h1></div>
       <div class="badge">{{.User.Role}} · {{.User.KYCStatus}}</div>
     </section>
+    {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
     <section class="metric-grid">
       <div class="metric"><span>{{t .Lang "nav.companies"}}</span><strong>{{index .Stats "companies"}}</strong></div>
       <div class="metric"><span>{{t .Lang "nav.market"}}</span><strong>{{index .Stats "transactions"}}</strong></div>
       <div class="metric"><span>{{t .Lang "nav.deals"}}</span><strong>{{index .Stats "deals"}}</strong></div>
       <div class="metric"><span>{{t .Lang "nav.portfolio"}}</span><strong>{{index .Stats "holdings"}}</strong></div>
       <div class="metric"><span>Watchlist</span><strong>{{index .Stats "watchlist"}}</strong></div>
+    </section>
+    <section class="grid two">
+      <form method="post" action="/compliance/reviews/create" class="panel stack">
+        <h2>Compliance Request</h2>
+        <label>Review Type<select name="review_type"><option value="all">KYC + AML + Accreditation</option><option value="kyc">KYC</option><option value="aml">AML</option><option value="accreditation">Accreditation</option></select></label>
+        <label>Note<input name="note" value="Please review my updated compliance materials."></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <div><h2>Compliance Reviews</h2><table><thead><tr><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Submitted</th><th>Reviewed</th></tr></thead><tbody>{{range .ComplianceReviews}}<tr><td>{{.ReviewType}}</td><td>{{.Status}}</td><td>{{.SubmittedAt}}</td><td>{{.ReviewedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
       <div class="section-head"><h2>Notifications</h2><form method="post" action="/notifications/read-all"><button class="small secondary">Mark all read</button></form></div>

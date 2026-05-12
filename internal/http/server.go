@@ -25,39 +25,40 @@ type Server struct {
 }
 
 type pageData struct {
-	Title          string
-	User           domain.User
-	Lang           string
-	Flash          string
-	Error          string
-	Companies      []domain.Company
-	Company        domain.Company
-	Watchlist      []domain.WatchlistItem
-	WatchlistMap   map[int64]bool
-	SellOrders     []domain.SellOrder
-	BuyInterests   []domain.BuyInterest
-	Transactions   []domain.Transaction
-	Negotiations   []domain.Negotiation
-	Deals          []domain.Deal
-	Subscriptions  []domain.Subscription
-	SubDocuments   []domain.SubscriptionDocument
-	Holdings       []domain.Holding
-	Users          []domain.User
-	SPVs           []domain.SPVVehicle
-	Documents      []domain.ExecutionDocument
-	EscrowPayments []domain.EscrowPayment
-	Valuations     []domain.ValuationRecord
-	ExitEvents     []domain.ExitEvent
-	Distributions  []domain.Distribution
-	CapitalCalls   []domain.CapitalCall
-	CompanyUpdates []domain.CompanyUpdate
-	Reports        []domain.InvestorReport
-	Notifications  []domain.Notification
-	RiskAlerts     []domain.RiskAlert
-	Tickets        []domain.SupportTicket
-	PendingUsers   []domain.User
-	AuditLogs      []domain.AuditLog
-	Stats          map[string]int
+	Title             string
+	User              domain.User
+	Lang              string
+	Flash             string
+	Error             string
+	Companies         []domain.Company
+	Company           domain.Company
+	Watchlist         []domain.WatchlistItem
+	WatchlistMap      map[int64]bool
+	ComplianceReviews []domain.ComplianceReview
+	SellOrders        []domain.SellOrder
+	BuyInterests      []domain.BuyInterest
+	Transactions      []domain.Transaction
+	Negotiations      []domain.Negotiation
+	Deals             []domain.Deal
+	Subscriptions     []domain.Subscription
+	SubDocuments      []domain.SubscriptionDocument
+	Holdings          []domain.Holding
+	Users             []domain.User
+	SPVs              []domain.SPVVehicle
+	Documents         []domain.ExecutionDocument
+	EscrowPayments    []domain.EscrowPayment
+	Valuations        []domain.ValuationRecord
+	ExitEvents        []domain.ExitEvent
+	Distributions     []domain.Distribution
+	CapitalCalls      []domain.CapitalCall
+	CompanyUpdates    []domain.CompanyUpdate
+	Reports           []domain.InvestorReport
+	Notifications     []domain.Notification
+	RiskAlerts        []domain.RiskAlert
+	Tickets           []domain.SupportTicket
+	PendingUsers      []domain.User
+	AuditLogs         []domain.AuditLog
+	Stats             map[string]int
 }
 
 func NewServer(store *store.Store) *Server {
@@ -91,6 +92,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/language", s.requireAuth(s.language))
 	mux.HandleFunc("/notifications/read-all", s.requireAuth(s.markAllNotificationsRead))
 	mux.HandleFunc("/notifications/", s.requireAuth(s.markNotificationRead))
+	mux.HandleFunc("/compliance/reviews/create", s.requireAuth(s.createComplianceReview))
 	mux.HandleFunc("/dashboard", s.requireAuth(s.dashboard))
 	mux.HandleFunc("/companies", s.requireAuth(s.companies))
 	mux.HandleFunc("/companies/", s.requireAuth(s.companyDetail))
@@ -123,6 +125,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/risks/", s.requireAdmin(s.resolveRiskAlert))
 	mux.HandleFunc("/admin/tickets/", s.requireAdmin(s.closeTicket))
 	mux.HandleFunc("/admin/reviews/", s.requireAdmin(s.approveReview))
+	mux.HandleFunc("/admin/compliance-reviews/", s.requireAdmin(s.resolveComplianceReview))
 	mux.HandleFunc("/admin/transactions/", s.requireAdmin(s.advanceTransaction))
 	mux.HandleFunc("/admin/subscriptions/", s.requireAdmin(s.advanceSubscription))
 	mux.HandleFunc("/admin/subscription-documents/create", s.requireAdmin(s.createSubscriptionDocument))
@@ -228,6 +231,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 	deals, _ := s.store.Deals()
 	holdings, _ := s.store.Holdings(user.ID)
 	watchlist, _ := s.store.Watchlist(user.ID)
+	complianceReviews, _ := s.store.ComplianceReviews(user, 5)
 	notifications, _ := s.store.Notifications(user.ID, 8)
 	stats := map[string]int{
 		"companies":    len(companies),
@@ -236,7 +240,23 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 		"holdings":     len(holdings),
 		"watchlist":    len(watchlist),
 	}
-	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, Transactions: transactions, Deals: deals, Holdings: holdings, Notifications: notifications, Stats: stats})
+	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, ComplianceReviews: complianceReviews, Transactions: transactions, Deals: deals, Holdings: holdings, Notifications: notifications, Stats: stats, Error: r.URL.Query().Get("error")})
+}
+
+func (s *Server) createComplianceReview(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/dashboard?error=form", http.StatusSeeOther)
+		return
+	}
+	if err := s.store.CreateComplianceReview(r.Context(), user.ID, r.FormValue("review_type"), r.FormValue("note")); err != nil {
+		http.Redirect(w, r, "/dashboard?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -563,6 +583,7 @@ func (s *Server) createSupportTicket(w http.ResponseWriter, r *http.Request, use
 func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User) {
 	pending, _ := s.store.UsersPendingReview()
 	users, _ := s.store.Users()
+	complianceReviews, _ := s.store.ComplianceReviews(user, 30)
 	companies, _ := s.store.Companies()
 	sellOrders, _ := s.store.SellOrders(user)
 	buyInterests, _ := s.store.BuyInterests(user)
@@ -581,7 +602,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	riskAlerts, _ := s.store.RiskAlerts()
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: nil, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -927,6 +948,31 @@ func (s *Server) approveReview(w http.ResponseWriter, r *http.Request, user doma
 	} else {
 		_ = s.store.RejectUser(r.Context(), user.ID, id)
 	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) resolveComplianceReview(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	action := ""
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/approve"):
+		action = "approve"
+	case strings.HasSuffix(r.URL.Path, "/reject"):
+		action = "reject"
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/compliance-reviews/"), "/approve"), "/reject")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = s.store.ResolveComplianceReview(r.Context(), user.ID, id, action == "approve")
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 

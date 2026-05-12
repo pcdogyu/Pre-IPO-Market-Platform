@@ -47,6 +47,12 @@
         {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{.Role}} · {{.RiskRating}}</td><td>{{.KYCStatus}}</td><td>AML {{.AMLStatus}} / ACC {{.AccreditationStatus}}</td><td class="action-cell"><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
+    <section>
+      <h2>Compliance Reviews</h2>
+      <table><thead><tr><th>User</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Note</th><th>Submitted</th><th></th></tr></thead><tbody>
+        {{range .ComplianceReviews}}<tr><td>{{.UserName}} · {{.UserEmail}}</td><td>{{.ReviewType}}</td><td>{{.Status}}</td><td>{{.Note}}</td><td>{{.SubmittedAt}}</td><td class="action-cell">{{if eq .Status "pending_review"}}<form method="post" action="/admin/compliance-reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/compliance-reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}
+      </tbody></table>
+    </section>
     <section class="grid two">
       <div>
         <h2>Transactions</h2>

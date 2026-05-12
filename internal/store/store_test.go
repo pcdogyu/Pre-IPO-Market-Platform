@@ -390,6 +390,58 @@ func TestRejectAndCancelWorkflows(t *testing.T) {
 	}
 }
 
+func TestComplianceReviewWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	pending, err := s.Authenticate("pending@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate pending user: %v", err)
+	}
+	if err := s.CreateComplianceReview(context.Background(), pending.ID, "all", "Updated documents uploaded"); err != nil {
+		t.Fatalf("create compliance review: %v", err)
+	}
+	if err := s.CreateComplianceReview(context.Background(), pending.ID, "bad", "Invalid"); err == nil {
+		t.Fatal("invalid compliance review type should fail")
+	}
+	reviews, err := s.ComplianceReviews(admin, 10)
+	if err != nil {
+		t.Fatalf("compliance reviews: %v", err)
+	}
+	var reviewID int64
+	for _, review := range reviews {
+		if review.UserEmail == "pending@demo.local" && review.ReviewType == "all" && review.Status == domain.ReviewPending {
+			reviewID = review.ID
+			break
+		}
+	}
+	if reviewID == 0 {
+		t.Fatal("expected pending compliance review")
+	}
+	if err := s.ResolveComplianceReview(context.Background(), admin.ID, reviewID, true); err != nil {
+		t.Fatalf("approve compliance review: %v", err)
+	}
+	approved, err := s.Authenticate("pending@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate approved user: %v", err)
+	}
+	if approved.KYCStatus != domain.ReviewApproved || approved.AMLStatus != domain.ReviewApproved || approved.AccreditationStatus != domain.ReviewApproved {
+		t.Fatalf("expected all compliance statuses approved, got kyc=%s aml=%s acc=%s", approved.KYCStatus, approved.AMLStatus, approved.AccreditationStatus)
+	}
+	notifications, err := s.Notifications(pending.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Title == "Compliance review resolved" {
+			return
+		}
+	}
+	t.Fatal("expected compliance review notification")
+}
+
 func TestNegotiationWorkflows(t *testing.T) {
 	s := testStore(t)
 	investor, err := s.Authenticate("investor@demo.local", "demo123")

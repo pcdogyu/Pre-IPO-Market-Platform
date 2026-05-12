@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "market.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <main class="container">
+    <section class="page-head"><div><p class="eyebrow">Secondary Market</p><h1>{{t .Lang "market.title"}}</h1></div></section>
+    {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+    <section class="grid two">
+      {{if canBuy .User}}
+      <form method="post" action="/orders/buy-interest" class="panel stack">
+        <h2>{{t .Lang "action.buy"}}</h2>
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="1" value="50000" required></label>
+        <label>{{t .Lang "label.price"}}<input name="target_price" type="number" min="1" step="0.01" value="42.00" required></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      {{end}}
+      {{if canSell .User}}
+      <form method="post" action="/orders/sell" class="panel stack">
+        <h2>{{t .Lang "action.sell"}}</h2>
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="1000" required></label>
+        <label>{{t .Lang "label.price"}}<input name="target_price" type="number" min="1" step="0.01" value="42.00" required></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      {{end}}
+    </section>
+    <section class="grid two">
+      <div><h2>Sell Orders</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .SellOrders}}<tr><td>{{.CompanyName}}</td><td>{{.Shares}}</td><td>{{money .TargetPrice}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>Buy Interests</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .BuyInterests}}<tr><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{money .TargetPrice}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section><h2>Transactions</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Buyer</th><th>Seller</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{.BuyerName}}</td><td>{{.SellerName}}</td><td>{{.Shares}}</td><td>{{statusLabel .Stage}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+  </main>
+</body>
+</html>

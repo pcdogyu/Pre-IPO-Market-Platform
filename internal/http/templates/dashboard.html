@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{t .Lang "dashboard.title"}}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a>
+    <nav>
+      <a href="/dashboard">{{t .Lang "nav.dashboard"}}</a>
+      <a href="/companies">{{t .Lang "nav.companies"}}</a>
+      <a href="/market/orders">{{t .Lang "nav.market"}}</a>
+      <a href="/deals">{{t .Lang "nav.deals"}}</a>
+      <a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>
+      {{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}
+    </nav>
+    <div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div>
+  </header>
+  <main class="container">
+    <section class="page-head">
+      <div><p class="eyebrow">{{.User.Email}}</p><h1>{{t .Lang "dashboard.title"}}</h1></div>
+      <div class="badge">{{.User.Role}} · {{.User.KYCStatus}}</div>
+    </section>
+    <section class="metric-grid">
+      <div class="metric"><span>{{t .Lang "nav.companies"}}</span><strong>{{index .Stats "companies"}}</strong></div>
+      <div class="metric"><span>{{t .Lang "nav.market"}}</span><strong>{{index .Stats "transactions"}}</strong></div>
+      <div class="metric"><span>{{t .Lang "nav.deals"}}</span><strong>{{index .Stats "deals"}}</strong></div>
+      <div class="metric"><span>{{t .Lang "nav.portfolio"}}</span><strong>{{index .Stats "holdings"}}</strong></div>
+    </section>
+    <section class="grid two">
+      <div>
+        <h2>{{t .Lang "companies.title"}}</h2>
+        <div class="list">
+          {{range .Companies}}<a class="row-link" href="/companies/{{.ID}}"><strong>{{.Name}}</strong><span>{{.Industry}} · {{.Valuation}}</span></a>{{else}}<p>{{t $.Lang "empty"}}</p>{{end}}
+        </div>
+      </div>
+      <div>
+        <h2>{{t .Lang "market.title"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>
+          {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td></tr>{{else}}<tr><td colspan="2">{{t $.Lang "empty"}}</td></tr>{{end}}
+        </tbody></table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

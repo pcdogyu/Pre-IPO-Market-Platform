@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pre-IPO MVP</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-panel">
+      <div>
+        <p class="eyebrow">Pre-IPO MVP</p>
+        <h1>{{t .Lang "login.title"}}</h1>
+        <p class="muted">admin@demo.local / investor@demo.local / seller@demo.local</p>
+        <p class="muted">password: demo123</p>
+      </div>
+      {{if .Error}}<div class="alert">Login failed: {{.Error}}</div>{{end}}
+      <form method="post" action="/auth/login" class="stack">
+        <label>{{t .Lang "login.email"}}<input name="email" type="email" value="investor@demo.local" required></label>
+        <label>{{t .Lang "login.password"}}<input name="password" type="password" value="demo123" required></label>
+        <button type="submit">{{t .Lang "login.submit"}}</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

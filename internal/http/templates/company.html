@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Company.Name}}</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <main class="container narrow">
+    <section class="page-head"><div><p class="eyebrow">{{.Company.Industry}}</p><h1>{{.Company.Name}}</h1></div><span class="badge">{{.Company.TradableStatus}}</span></section>
+    <p class="lead">{{.Company.Description}}</p>
+    <dl class="facts wide"><div><dt>{{t .Lang "label.valuation"}}</dt><dd>{{.Company.Valuation}}</dd></div><div><dt>Share Price</dt><dd>{{money .Company.SharePrice}}</dd></div><div><dt>{{t .Lang "label.round"}}</dt><dd>{{.Company.FundingRound}}</dd></div><div><dt>{{t .Lang "label.status"}}</dt><dd>{{.Company.TradableStatus}}</dd></div><div><dt>Transfer Restrictions</dt><dd>{{.Company.TransferRestrictions}}</dd></div></dl>
+    <div class="actions"><a class="button" href="/market/orders">{{t .Lang "nav.market"}}</a><a class="button secondary" href="/deals">{{t .Lang "nav.deals"}}</a></div>
+  </main>
+</body>
+</html>

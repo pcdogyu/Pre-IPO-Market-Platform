@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "companies.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <main class="container">
+    <section class="page-head"><div><p class="eyebrow">Company Universe</p><h1>{{t .Lang "companies.title"}}</h1></div></section>
+    <section class="cards">
+      {{range .Companies}}
+      <article class="card">
+        <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{.TradableStatus}}</span></div>
+        <p>{{.Description}}</p>
+        <dl class="facts"><div><dt>{{t $.Lang "label.industry"}}</dt><dd>{{.Industry}}</dd></div><div><dt>{{t $.Lang "label.valuation"}}</dt><dd>{{.Valuation}}</dd></div><div><dt>Share Price</dt><dd>{{money .SharePrice}}</dd></div><div><dt>{{t $.Lang "label.round"}}</dt><dd>{{.FundingRound}}</dd></div><div><dt>Restrictions</dt><dd>{{.TransferRestrictions}}</dd></div></dl>
+        <a class="button secondary" href="/companies/{{.ID}}">View</a>
+      </article>
+      {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
+    </section>
+  </main>
+</body>
+</html>

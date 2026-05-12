@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "portfolio.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <main class="container">
+    <section class="page-head"><div><p class="eyebrow">{{.User.Name}}</p><h1>{{t .Lang "portfolio.title"}}</h1></div></section>
+    <section><h2>Holdings</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Source</th><th>Cost</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Holdings}}<tr><td>{{.CompanyName}}</td><td>{{.SourceType}}</td><td>{{money .Cost}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section class="grid two">
+      <div><h2>Transactions</h2><table><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>Subscriptions</h2><table><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
+      <div><h2>Valuation Updates</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
+      <div><h2>Distributions & Tax</h2><table><thead><tr><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Tax Document</th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.TaxDocument}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>Reports</h2><table><thead><tr><th>Title</th><th>Period</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.Title}}</td><td>{{.Period}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
+      <form method="post" action="/support/tickets" class="panel stack"><h2>Support Ticket</h2><label>Subject<input name="subject" required></label><label>Note<input name="note"></label><button>{{t .Lang "form.submit"}}</button></form>
+      <div><h2>My Tickets</h2><table><thead><tr><th>Subject</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.Subject}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="2">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+  </main>
+</body>
+</html>

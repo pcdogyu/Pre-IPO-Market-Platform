@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "deals.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <main class="container">
+    <section class="page-head"><div><p class="eyebrow">SPV</p><h1>{{t .Lang "deals.title"}}</h1></div></section>
+    {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+    <section class="cards">
+      {{range .Deals}}
+      <article class="card">
+        <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{.DealType}} · {{.Status}}</span></div>
+        <p>{{.CompanyName}}</p>
+        <p class="muted">{{.Structure}}</p>
+        <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>Subscribed</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div></dl>
+        <p class="muted">{{t $.Lang "label.fees"}}: {{.FeeDescription}}</p>
+        {{if canBuy $.User}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form"><input name="amount" type="number" min="{{.MinSubscription}}" value="{{printf "%.0f" .MinSubscription}}"><button>{{t $.Lang "action.subscribe"}}</button></form>{{end}}
+      </article>
+      {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
+    </section>
+    <section><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Jurisdiction</th><th>Class</th><th>Units</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Jurisdiction}}</td><td>{{.ShareClass}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>Subscriptions</h2><table><thead><tr><th>Deal</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "admin.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a><a href="/admin">{{t .Lang "nav.admin"}}</a></nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <main class="container">
+    <section class="page-head"><div><p class="eyebrow">Operations</p><h1>{{t .Lang "admin.title"}}</h1></div></section>
+    {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+    <section class="grid two">
+      <form method="post" action="/admin/companies/create" class="panel stack">
+        <h2>Company Asset Library</h2>
+        <label>Name<input name="name" value="Atlas Robotics" required></label>
+        <label>{{t .Lang "label.industry"}}<input name="industry" value="Industrial automation" required></label>
+        <label>{{t .Lang "label.valuation"}}<input name="valuation" value="$1.4B" required></label>
+        <label>{{t .Lang "label.round"}}<input name="funding_round" value="Series C"></label>
+        <label>Share Price<input name="share_price" type="number" min="0" step="0.01" value="22.50"></label>
+        <label>{{t .Lang "label.status"}}<select name="tradable_status"><option value="tradable">tradable</option><option value="limited">limited</option></select></label>
+        <label>Transfer Restrictions<input name="transfer_restrictions" value="ROFR + company consent"></label>
+        <label>Description<input name="description" value="Pre-IPO company profile created by admin."></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <form method="post" action="/admin/deals/create" class="panel stack">
+        <h2>Project / Deal Builder</h2>
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <label>Name<input name="name" value="New Growth SPV" required></label>
+        <label>Deal Type<select name="deal_type"><option value="spv">SPV</option><option value="fund_basket">Fund Basket</option><option value="direct_secondary">Direct Secondary</option></select></label>
+        <label>Structure<input name="structure" value="Single-company SPV with pro-rata units"></label>
+        <label>{{t .Lang "label.minimum"}}<input name="min_subscription" type="number" min="1" value="25000"></label>
+        <label>{{t .Lang "label.target"}}<input name="target_size" type="number" min="1" value="5000000"></label>
+        <label>{{t .Lang "label.fees"}}<input name="fee_description" value="2% management fee"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Create Match</h2>
+      <form method="post" action="/admin/matches/create" class="match-form">
+        <label>Sell Order<select name="sell_order_id">{{range .SellOrders}}{{if eq .Status "open"}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .TargetPrice}}</option>{{end}}{{end}}</select></label>
+        <label>Buy Interest<select name="buy_interest_id">{{range .BuyInterests}}{{if eq .Status "interest_submitted"}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{money .Amount}} @ {{money .TargetPrice}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="500" required></label>
+        <label>Match Price<input name="price" type="number" min="1" step="0.01" value="42.00" required></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+    </section>
+    <section>
+      <h2>Review Queue</h2>
+      <table><thead><tr><th>Email</th><th>{{t .Lang "label.role"}}</th><th>KYC</th><th>Accreditation</th><th></th></tr></thead><tbody>
+        {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{.Role}} · {{.RiskRating}}</td><td>{{.KYCStatus}}</td><td>AML {{.AMLStatus}} / ACC {{.AccreditationStatus}}</td><td><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
+      </tbody></table>
+    </section>
+    <section class="grid two">
+      <div>
+        <h2>Transactions</h2>
+        <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.status"}}</th><th>Execution</th><th></th></tr></thead><tbody>
+          {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td><td>Docs {{.DocumentStatus}} · ROFR {{.ROFRStatus}} · Approval {{.CompanyApprovalStatus}} · Escrow {{.EscrowStatus}}</td><td>{{if not (terminalTxn .Stage)}}<form method="post" action="/admin/transactions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
+        </tbody></table>
+      </div>
+      <div>
+        <h2>Subscriptions</h2>
+        <table><thead><tr><th>Deal</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
+          {{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td><td>{{if not (terminalSub .Status)}}<form method="post" action="/admin/subscriptions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}
+        </tbody></table>
+      </div>
+    </section>
+    <section class="grid two">
+      <div><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Manager</th><th>Units</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Manager}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>Execution Documents</h2><table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
+      <div><h2>Post-Investment Valuations</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
+      <form method="post" action="/admin/valuations/create" class="panel stack">
+        <h2>Add Valuation</h2>
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <label>{{t .Lang "label.valuation"}}<input name="valuation" value="$5.0B" required></label>
+        <label>Share Price<input name="share_price" type="number" min="0.01" step="0.01" value="45.00" required></label>
+        <label>As Of Date<input name="as_of_date" value="2026-06-30" required></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <form method="post" action="/admin/exits/create" class="panel stack">
+        <h2>Add Exit Event</h2>
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <label>Event Type<input name="event_type" value="IPO readiness" required></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="watchlist">watchlist</option><option value="monitoring">monitoring</option><option value="confirmed">confirmed</option></select></label>
+        <label>Expected Date<input name="expected_date" value="2027-H1"></label>
+        <label>Description<input name="description" value="Management indicated possible liquidity window."></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+    </section>
+    <section class="grid two">
+      <form method="post" action="/admin/distributions/create" class="panel stack">
+        <h2>Create Distribution</h2>
+        <label>User<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="0" step="0.01" value="0"></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="not_due">not_due</option><option value="pending">pending</option><option value="paid">paid</option></select></label>
+        <label>Tax Document<input name="tax_document" value="K-1 pending"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <form method="post" action="/admin/reports/create" class="panel stack">
+        <h2>Create Report</h2>
+        <label>User<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
+        <label>Report Type<select name="report_type"><option value="portfolio">portfolio</option><option value="tax">tax</option><option value="capital_account">capital_account</option></select></label>
+        <label>Title<input name="title" value="Q2 2026 Portfolio Statement" required></label>
+        <label>Period<input name="period" value="2026-Q2"></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="available">available</option><option value="pending">pending</option></select></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+    </section>
+    <section class="grid two">
+      <div>
+        <h2>Risk Monitoring</h2>
+        <form method="post" action="/admin/risks/create" class="inline-form wide-inline"><select name="severity"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select><input name="subject" value="New risk alert" required><input name="note" value="Operator note"><button>{{t .Lang "form.submit"}}</button></form>
+        <table><thead><tr><th>Severity</th><th>Subject</th><th>{{t .Lang "label.status"}}</th><th>Note</th><th></th></tr></thead><tbody>{{range .RiskAlerts}}<tr><td>{{.Severity}}</td><td>{{.Subject}}</td><td>{{.Status}}</td><td>{{.Note}}</td><td>{{if ne .Status "resolved"}}<form method="post" action="/admin/risks/{{.ID}}/resolve"><button class="small">Resolve</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+      <div><h2>Support Tickets</h2><table><thead><tr><th>User</th><th>Subject</th><th>{{t .Lang "label.status"}}</th><th>Note</th><th></th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.UserName}}</td><td>{{.Subject}}</td><td>{{.Status}}</td><td>{{.Note}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/admin/tickets/{{.ID}}/close"><button class="small">Close</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section>
+      <h2>{{t .Lang "label.audit"}}</h2>
+      <table><thead><tr><th>Actor</th><th>Action</th><th>Object</th><th>Note</th><th>Time</th></tr></thead><tbody>{{range .AuditLogs}}<tr><td>{{.ActorName}}</td><td>{{.Action}}</td><td>{{.ObjectType}} #{{.ObjectID}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
+  </main>
+</body>
+</html>

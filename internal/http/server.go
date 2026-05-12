@@ -134,6 +134,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/distributions/", s.requireAdmin(s.advanceDistribution))
 	mux.HandleFunc("/admin/capital-calls/create", s.requireAdmin(s.createCapitalCall))
 	mux.HandleFunc("/admin/reports/create", s.requireAdmin(s.createReport))
+	mux.HandleFunc("/admin/reports/", s.requireAdmin(s.advanceReport))
 	mux.HandleFunc("/admin/risks/create", s.requireAdmin(s.createRiskAlert))
 	mux.HandleFunc("/admin/risks/actions/create", s.requireAdmin(s.createRiskAction))
 	mux.HandleFunc("/admin/risks/", s.requireAdmin(s.resolveRiskAlert))
@@ -700,12 +701,13 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	distributions, _ := s.store.Distributions(0)
 	capitalCalls, _ := s.store.CapitalCalls(user)
 	companyUpdates, _ := s.store.CompanyUpdates(0, 20)
+	reports, _ := s.store.Reports(0)
 	riskAlerts, _ := s.store.RiskAlerts()
 	riskActions, _ := s.store.RiskActions()
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -1041,6 +1043,24 @@ func (s *Server) createReport(w http.ResponseWriter, r *http.Request, user domai
 		return
 	}
 	if err := s.store.CreateReport(r.Context(), user.ID, report); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) advanceReport(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/advance") {
+		http.NotFound(w, r)
+		return
+	}
+	idPart := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/admin/reports/"), "/advance")
+	id, err := strconv.ParseInt(strings.Trim(idPart, "/"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.store.AdvanceReport(r.Context(), user.ID, id); err != nil {
 		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
 		return
 	}

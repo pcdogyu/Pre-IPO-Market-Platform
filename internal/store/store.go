@@ -2452,7 +2452,15 @@ func nextDistributionStatus(status string) (string, error) {
 }
 
 func (s *Store) Reports(userID int64) ([]domain.InvestorReport, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, report_type, title, period, status FROM investor_reports WHERE user_id = ? ORDER BY id DESC`, userID)
+	query := `SELECT r.id, r.user_id, u.name, r.report_type, r.title, r.period, r.status
+		FROM investor_reports r JOIN users u ON u.id = r.user_id`
+	var rows *sql.Rows
+	var err error
+	if userID > 0 {
+		rows, err = s.db.Query(query+` WHERE r.user_id = ? ORDER BY r.id DESC`, userID)
+	} else {
+		rows, err = s.db.Query(query + ` ORDER BY r.id DESC`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -2460,7 +2468,7 @@ func (s *Store) Reports(userID int64) ([]domain.InvestorReport, error) {
 	var reports []domain.InvestorReport
 	for rows.Next() {
 		var report domain.InvestorReport
-		if err := rows.Scan(&report.ID, &report.UserID, &report.ReportType, &report.Title, &report.Period, &report.Status); err != nil {
+		if err := rows.Scan(&report.ID, &report.UserID, &report.UserName, &report.ReportType, &report.Title, &report.Period, &report.Status); err != nil {
 			return nil, err
 		}
 		reports = append(reports, report)
@@ -2469,6 +2477,9 @@ func (s *Store) Reports(userID int64) ([]domain.InvestorReport, error) {
 }
 
 func (s *Store) CreateReport(ctx context.Context, actorID int64, report domain.InvestorReport) error {
+	if report.UserID <= 0 || report.ReportType == "" || report.Title == "" || !validReportStatus(report.Status) {
+		return fmt.Errorf("valid user, type, title and status are required")
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -2487,6 +2498,57 @@ func (s *Store) CreateReport(ctx context.Context, actorID int64, report domain.I
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *Store) AdvanceReport(ctx context.Context, actorID, reportID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var userID int64
+	var title string
+	var period string
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT user_id, title, period, status FROM investor_reports WHERE id = ?`, reportID).Scan(&userID, &title, &period, &status); err != nil {
+		return err
+	}
+	next, err := nextReportStatus(status)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE investor_reports SET status = ? WHERE id = ?`, next, reportID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, actorID, "advance_report", "investor_report", reportID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, userID, "Investor report updated", fmt.Sprintf("%s for %s moved from %s to %s", title, period, status, next)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func validReportStatus(status string) bool {
+	switch status {
+	case "pending", "available", "archived":
+		return true
+	default:
+		return false
+	}
+}
+
+func nextReportStatus(status string) (string, error) {
+	switch status {
+	case "pending":
+		return "available", nil
+	case "available":
+		return "archived", nil
+	case "archived":
+		return "", fmt.Errorf("report is already archived")
+	default:
+		return "", fmt.Errorf("unknown report status: %s", status)
+	}
 }
 
 func (s *Store) Notifications(userID int64, limit int) ([]domain.Notification, error) {

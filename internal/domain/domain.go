@@ -321,6 +321,7 @@ type CapitalCall struct {
 type InvestorReport struct {
 	ID         int64
 	UserID     int64
+	UserName   string
 	ReportType string
 	Title      string
 	Period     string

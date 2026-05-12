@@ -540,6 +540,32 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	if err := s.CreateReport(context.Background(), admin.ID, domain.InvestorReport{UserID: 2, ReportType: "portfolio", Title: "Q2 Report", Period: "2026-Q2", Status: "available"}); err != nil {
 		t.Fatalf("create report: %v", err)
 	}
+	if err := s.CreateReport(context.Background(), admin.ID, domain.InvestorReport{UserID: 2, ReportType: "tax", Title: "2026 Tax Draft", Period: "2026", Status: "pending"}); err != nil {
+		t.Fatalf("create pending report: %v", err)
+	}
+	reports, err := s.Reports(0)
+	if err != nil {
+		t.Fatalf("admin reports: %v", err)
+	}
+	var reportID int64
+	for _, report := range reports {
+		if report.Title == "2026 Tax Draft" && report.UserName != "" && report.Status == "pending" {
+			reportID = report.ID
+			break
+		}
+	}
+	if reportID == 0 {
+		t.Fatal("expected pending report in admin queue")
+	}
+	if err := s.AdvanceReport(context.Background(), admin.ID, reportID); err != nil {
+		t.Fatalf("advance report to available: %v", err)
+	}
+	if err := s.AdvanceReport(context.Background(), admin.ID, reportID); err != nil {
+		t.Fatalf("advance report to archived: %v", err)
+	}
+	if err := s.AdvanceReport(context.Background(), admin.ID, reportID); err == nil {
+		t.Fatal("archived report should not advance")
+	}
 	if err := s.CreateRiskAlert(context.Background(), admin.ID, domain.RiskAlert{Severity: "high", Status: "open", Subject: "Concentration limit", Note: "Review exposure"}); err != nil {
 		t.Fatalf("create risk alert: %v", err)
 	}

@@ -189,6 +189,10 @@
       <h2>Distribution Queue</h2>
       <table><thead><tr><th>User</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Tax Document</th><th></th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{.UserName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.TaxDocument}}</td><td>{{if ne .Status "paid"}}<form method="post" action="/admin/distributions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
+    <section>
+      <h2>Report Queue</h2>
+      <table><thead><tr><th>User</th><th>Type</th><th>Title</th><th>Period</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.UserName}}</td><td>{{.ReportType}}</td><td>{{.Title}}</td><td>{{.Period}}</td><td>{{.Status}}</td><td>{{if ne .Status "archived"}}<form method="post" action="/admin/reports/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <form method="post" action="/admin/capital-calls/create" class="panel stack">
         <h2>Create Capital Call</h2>

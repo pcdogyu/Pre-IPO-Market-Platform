@@ -415,6 +415,43 @@ func TestAdminCanAdvanceDistribution(t *testing.T) {
 	}
 }
 
+func TestAdminCanAdvanceReport(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"user_id": {"2"}, "report_type": {"tax"}, "title": {"Q3 Tax Draft"}, "period": {"2026-Q3"}, "status": {"pending"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/reports/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create report status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/admin/reports/3/advance", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("advance report status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Report Queue") {
+		t.Fatal("admin should render report queue")
+	}
+	if !strings.Contains(body, "Q3 Tax Draft") || !strings.Contains(body, "available") {
+		t.Fatal("admin should render advanced report")
+	}
+}
+
 func TestAdminCanAddRiskAction(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin@demo.local")

@@ -519,3 +519,60 @@ func TestCapitalCallWorkflow(t *testing.T) {
 		t.Fatal("other user should not confirm capital call")
 	}
 }
+
+func TestCompanyUpdateWorkflow(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	update := domain.CompanyUpdate{
+		CompanyID:  1,
+		UpdateType: "financing",
+		Title:      "NeuralBridge financing memo",
+		Body:       "Board approved a financing process update for current holders.",
+	}
+	if err := s.PublishCompanyUpdate(context.Background(), admin.ID, update); err != nil {
+		t.Fatalf("publish company update: %v", err)
+	}
+	updates, err := s.CompanyUpdates(1, 10)
+	if err != nil {
+		t.Fatalf("company updates: %v", err)
+	}
+	var found bool
+	for _, item := range updates {
+		if item.Title == update.Title && item.CompanyName == "NeuralBridge AI" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected company update on company timeline")
+	}
+	portfolioUpdates, err := s.PortfolioCompanyUpdates(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("portfolio company updates: %v", err)
+	}
+	found = false
+	for _, item := range portfolioUpdates {
+		if item.Title == update.Title {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected holder to see company update in portfolio")
+	}
+	notifications, err := s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Title == "Company update published" && notification.Status == "unread" {
+			return
+		}
+	}
+	t.Fatal("expected company update notification")
+}

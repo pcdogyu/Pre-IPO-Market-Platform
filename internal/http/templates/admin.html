@@ -105,6 +105,17 @@
       </form>
     </section>
     <section class="grid two">
+      <form method="post" action="/admin/company-updates/create" class="panel stack">
+        <h2>Publish Company Update</h2>
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <label>Update Type<select name="update_type"><option value="financing">financing</option><option value="revenue">revenue</option><option value="governance">governance</option><option value="liquidity">liquidity</option></select></label>
+        <label>Title<input name="title" value="Quarterly company update" required></label>
+        <label>Summary<input name="body" value="Management shared a material business update for current holders." required></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <div><h2>Company Updates</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Type</th><th>Title</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.CompanyName}}</td><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
       <form method="post" action="/admin/distributions/create" class="panel stack">
         <h2>Create Distribution</h2>
         <label>User<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>

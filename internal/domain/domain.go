@@ -78,6 +78,16 @@ type Company struct {
 	TransferRestrictions string
 }
 
+type CompanyUpdate struct {
+	ID          int64
+	CompanyID   int64
+	CompanyName string
+	UpdateType  string
+	Title       string
+	Body        string
+	PublishedAt string
+}
+
 type SellOrder struct {
 	ID          int64
 	SellerID    int64

@@ -301,3 +301,38 @@ func TestCapitalCallRoutes(t *testing.T) {
 		t.Fatalf("confirm capital call status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 }
+
+func TestAdminCanPublishCompanyUpdate(t *testing.T) {
+	app := testApp(t)
+	adminCookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{
+		"company_id":  {"1"},
+		"update_type": {"financing"},
+		"title":       {"NeuralBridge holder update"},
+		"body":        {"Financing process update for current holders."},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/admin/company-updates/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish update status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	investorCookie := loginCookie(t, app, "investor@demo.local")
+	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "NeuralBridge holder update") {
+		t.Fatal("portfolio should render published company update")
+	}
+	if !strings.Contains(body, "Company update published") {
+		t.Fatal("portfolio should render company update notification")
+	}
+}

@@ -69,6 +69,14 @@ func (s *Store) Migrate() error {
 			tradable_status TEXT NOT NULL,
 			transfer_restrictions TEXT NOT NULL DEFAULT ''
 		)`,
+		`CREATE TABLE IF NOT EXISTS company_updates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			company_id INTEGER NOT NULL REFERENCES companies(id),
+			update_type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			body TEXT NOT NULL,
+			published_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS sell_orders (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			seller_id INTEGER NOT NULL REFERENCES users(id),
@@ -329,6 +337,11 @@ func (s *Store) SeedDemoData() error {
 		(2, 'HelioGrid Energy', 'spv', 30000, 'admin_confirmed')`); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(`INSERT INTO company_updates (company_id, update_type, title, body, published_at) VALUES
+		(1, 'revenue', 'NeuralBridge ARR update', 'Management reported continued enterprise expansion and improved gross retention.', ?),
+		(2, 'financing', 'HelioGrid strategic round watch', 'A potential strategic financing could reset valuation before the next reporting cycle.', ?)`, time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(-24*time.Hour).Format(time.RFC3339)); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES
 		(1, 'HelioGrid SPV I LLC', 'Delaware', 'PreIPO Demo GP LLC', 'Class A', 500000, 30000),
 		(2, 'NeuralBridge Growth Basket LP', 'Cayman Islands', 'PreIPO Demo GP LLC', 'Limited Partner Units', 800000, 0)`); err != nil {
@@ -540,6 +553,112 @@ func (s *Store) CreateCompany(ctx context.Context, actorID int64, company domain
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *Store) CompanyUpdates(companyID int64, limit int) ([]domain.CompanyUpdate, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	query := `SELECT cu.id, cu.company_id, c.name, cu.update_type, cu.title, cu.body, cu.published_at
+		FROM company_updates cu JOIN companies c ON c.id = cu.company_id`
+	var rows *sql.Rows
+	var err error
+	if companyID > 0 {
+		rows, err = s.db.Query(query+` WHERE cu.company_id = ? ORDER BY cu.id DESC LIMIT ?`, companyID, limit)
+	} else {
+		rows, err = s.db.Query(query+` ORDER BY cu.id DESC LIMIT ?`, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanCompanyUpdates(rows)
+}
+
+func (s *Store) PortfolioCompanyUpdates(userID int64, limit int) ([]domain.CompanyUpdate, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := s.db.Query(`SELECT DISTINCT cu.id, cu.company_id, c.name, cu.update_type, cu.title, cu.body, cu.published_at
+		FROM company_updates cu JOIN companies c ON c.id = cu.company_id
+		WHERE cu.company_id IN (
+			SELECT ch.id FROM holdings h JOIN companies ch ON ch.name = h.company_name WHERE h.user_id = ?
+			UNION SELECT d.company_id FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE s.investor_id = ? AND s.status != 'cancelled'
+			UNION SELECT company_id FROM transactions WHERE buyer_id = ? OR seller_id = ?
+		)
+		ORDER BY cu.id DESC LIMIT ?`, userID, userID, userID, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanCompanyUpdates(rows)
+}
+
+func (s *Store) PublishCompanyUpdate(ctx context.Context, actorID int64, update domain.CompanyUpdate) error {
+	if update.CompanyID <= 0 || update.UpdateType == "" || update.Title == "" || update.Body == "" {
+		return fmt.Errorf("company, update type, title and body are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var companyName string
+	if err := tx.QueryRowContext(ctx, `SELECT name FROM companies WHERE id = ?`, update.CompanyID).Scan(&companyName); err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO company_updates (company_id, update_type, title, body, published_at) VALUES (?, ?, ?, ?, ?)`,
+		update.CompanyID, update.UpdateType, update.Title, update.Body, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := insertAudit(ctx, tx, actorID, "publish_company_update", "company_update", id, fmt.Sprintf("%s: %s", companyName, update.Title)); err != nil {
+		return err
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT user_id FROM (
+			SELECT h.user_id FROM holdings h WHERE h.company_name = ?
+			UNION SELECT s.investor_id FROM subscriptions s JOIN deals d ON d.id = s.deal_id WHERE d.company_id = ? AND s.status != 'cancelled'
+			UNION SELECT buyer_id FROM transactions WHERE company_id = ?
+			UNION SELECT seller_id FROM transactions WHERE company_id = ?
+		) ORDER BY user_id`, companyName, update.CompanyID, update.CompanyID, update.CompanyID)
+	if err != nil {
+		return err
+	}
+	var userIDs []int64
+	for rows.Next() {
+		var userID int64
+		if err := rows.Scan(&userID); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		userIDs = append(userIDs, userID)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, userID := range userIDs {
+		if err := insertNotification(ctx, tx, userID, "Company update published", fmt.Sprintf("%s: %s", companyName, update.Title)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func scanCompanyUpdates(rows *sql.Rows) ([]domain.CompanyUpdate, error) {
+	var updates []domain.CompanyUpdate
+	for rows.Next() {
+		var update domain.CompanyUpdate
+		if err := rows.Scan(&update.ID, &update.CompanyID, &update.CompanyName, &update.UpdateType, &update.Title, &update.Body, &update.PublishedAt); err != nil {
+			return nil, err
+		}
+		updates = append(updates, update)
+	}
+	return updates, rows.Err()
 }
 
 func (s *Store) SellOrders(user domain.User) ([]domain.SellOrder, error) {

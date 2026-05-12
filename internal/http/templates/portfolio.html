@@ -34,6 +34,10 @@
       <div><h2>Valuation Updates</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
+    <section>
+      <h2>Company Updates</h2>
+      <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Type</th><th>Title</th><th>Summary</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.CompanyName}}</td><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    </section>
     <section class="grid two">
       <div><h2>Distributions & Tax</h2><table><thead><tr><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Tax Document</th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.TaxDocument}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Reports</h2><table><thead><tr><th>Title</th><th>Period</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.Title}}</td><td>{{.Period}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>

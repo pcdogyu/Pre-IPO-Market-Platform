@@ -336,10 +336,22 @@ type Notification struct {
 }
 
 type RiskAlert struct {
+	ID             int64
+	Severity       string
+	Status         string
+	Subject        string
+	Note           string
+	AssignedTo     int64
+	AssignedToName string
+	CreatedAt      string
+}
+
+type RiskAction struct {
 	ID        int64
-	Severity  string
-	Status    string
-	Subject   string
+	AlertID   int64
+	ActorID   int64
+	ActorName string
+	Action    string
 	Note      string
 	CreatedAt string
 }

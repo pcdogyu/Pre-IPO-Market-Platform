@@ -284,6 +284,35 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 	}
 }
 
+func TestAdminCanAddRiskAction(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"alert_id": {"1"}, "assigned_to": {"1"}, "action": {"assigned"}, "note": {"Assign owner"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/risks/actions/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("risk action status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Risk Actions") {
+		t.Fatal("admin should render risk actions section")
+	}
+	if !strings.Contains(body, "Assign owner") {
+		t.Fatal("admin should render submitted risk action note")
+	}
+}
+
 func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 	app := testApp(t)
 	investorCookie := loginCookie(t, app, "investor@demo.local")

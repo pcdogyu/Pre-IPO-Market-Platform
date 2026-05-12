@@ -370,6 +370,22 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("risk alerts: %v", err)
 	}
+	if err := s.AddRiskAction(context.Background(), admin.ID, alerts[0].ID, admin.ID, "assigned", "Owner assigned"); err != nil {
+		t.Fatalf("add risk action: %v", err)
+	}
+	actions, err := s.RiskActions()
+	if err != nil {
+		t.Fatalf("risk actions: %v", err)
+	}
+	var foundAction bool
+	for _, action := range actions {
+		if action.AlertID == alerts[0].ID && action.Action == "assigned" {
+			foundAction = true
+		}
+	}
+	if !foundAction {
+		t.Fatal("expected assigned risk action")
+	}
 	if err := s.ResolveRiskAlert(context.Background(), admin.ID, alerts[0].ID); err != nil {
 		t.Fatalf("resolve alert: %v", err)
 	}

@@ -266,6 +266,15 @@ func (s *Store) Migrate() error {
 			status TEXT NOT NULL,
 			subject TEXT NOT NULL,
 			note TEXT NOT NULL,
+			assigned_to INTEGER REFERENCES users(id),
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS risk_actions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			alert_id INTEGER NOT NULL REFERENCES risk_alerts(id) ON DELETE CASCADE,
+			actor_id INTEGER NOT NULL REFERENCES users(id),
+			action TEXT NOT NULL,
+			note TEXT NOT NULL,
 			created_at TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS support_tickets (
@@ -300,6 +309,7 @@ func (s *Store) Migrate() error {
 		`ALTER TABLE transactions ADD COLUMN escrow_status TEXT NOT NULL DEFAULT 'not_started'`,
 		`ALTER TABLE deals ADD COLUMN deal_type TEXT NOT NULL DEFAULT 'spv'`,
 		`ALTER TABLE deals ADD COLUMN structure TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE risk_alerts ADD COLUMN assigned_to INTEGER REFERENCES users(id)`,
 	} {
 		if _, err := s.db.Exec(migration); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 			return err
@@ -2309,7 +2319,8 @@ func (s *Store) MarkAllNotificationsRead(ctx context.Context, userID int64) erro
 }
 
 func (s *Store) RiskAlerts() ([]domain.RiskAlert, error) {
-	rows, err := s.db.Query(`SELECT id, severity, status, subject, note, created_at FROM risk_alerts ORDER BY id DESC`)
+	rows, err := s.db.Query(`SELECT r.id, r.severity, r.status, r.subject, r.note, COALESCE(r.assigned_to, 0), COALESCE(u.name, ''), r.created_at
+		FROM risk_alerts r LEFT JOIN users u ON u.id = r.assigned_to ORDER BY r.id DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -2317,7 +2328,7 @@ func (s *Store) RiskAlerts() ([]domain.RiskAlert, error) {
 	var alerts []domain.RiskAlert
 	for rows.Next() {
 		var alert domain.RiskAlert
-		if err := rows.Scan(&alert.ID, &alert.Severity, &alert.Status, &alert.Subject, &alert.Note, &alert.CreatedAt); err != nil {
+		if err := rows.Scan(&alert.ID, &alert.Severity, &alert.Status, &alert.Subject, &alert.Note, &alert.AssignedTo, &alert.AssignedToName, &alert.CreatedAt); err != nil {
 			return nil, err
 		}
 		alerts = append(alerts, alert)
@@ -2343,6 +2354,64 @@ func (s *Store) CreateRiskAlert(ctx context.Context, actorID int64, alert domain
 	return tx.Commit()
 }
 
+func (s *Store) RiskActions() ([]domain.RiskAction, error) {
+	rows, err := s.db.Query(`SELECT ra.id, ra.alert_id, ra.actor_id, u.name, ra.action, ra.note, ra.created_at
+		FROM risk_actions ra JOIN users u ON u.id = ra.actor_id ORDER BY ra.id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var actions []domain.RiskAction
+	for rows.Next() {
+		var action domain.RiskAction
+		if err := rows.Scan(&action.ID, &action.AlertID, &action.ActorID, &action.ActorName, &action.Action, &action.Note, &action.CreatedAt); err != nil {
+			return nil, err
+		}
+		actions = append(actions, action)
+	}
+	return actions, rows.Err()
+}
+
+func (s *Store) AddRiskAction(ctx context.Context, actorID, alertID, assigneeID int64, action, note string) error {
+	if alertID <= 0 || action == "" {
+		return fmt.Errorf("alert and action are required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var subject string
+	if err := tx.QueryRowContext(ctx, `SELECT subject FROM risk_alerts WHERE id = ?`, alertID).Scan(&subject); err != nil {
+		return err
+	}
+	if assigneeID > 0 {
+		if _, err := tx.ExecContext(ctx, `UPDATE risk_alerts SET assigned_to = ? WHERE id = ?`, assigneeID, alertID); err != nil {
+			return err
+		}
+	}
+	if note != "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE risk_alerts SET note = ? WHERE id = ?`, note, alertID); err != nil {
+			return err
+		}
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO risk_actions (alert_id, actor_id, action, note, created_at) VALUES (?, ?, ?, ?, ?)`,
+		alertID, actorID, action, note, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := insertAudit(ctx, tx, actorID, "add_risk_action", "risk_action", id, fmt.Sprintf("risk #%d %s", alertID, action)); err != nil {
+		return err
+	}
+	if assigneeID > 0 {
+		if err := insertNotification(ctx, tx, assigneeID, "Risk alert assigned", fmt.Sprintf("%s requires review", subject)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) ResolveRiskAlert(ctx context.Context, actorID, alertID int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -2350,6 +2419,9 @@ func (s *Store) ResolveRiskAlert(ctx context.Context, actorID, alertID int64) er
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `UPDATE risk_alerts SET status = 'resolved' WHERE id = ?`, alertID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO risk_actions (alert_id, actor_id, action, note, created_at) VALUES (?, ?, 'resolved', 'status -> resolved', ?)`, alertID, actorID, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if err := insertAudit(ctx, tx, actorID, "resolve_risk_alert", "risk_alert", alertID, "status -> resolved"); err != nil {

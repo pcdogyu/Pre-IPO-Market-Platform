@@ -42,6 +42,12 @@
       </form>
     </section>
     <section>
+      <h2>Deal Pipeline</h2>
+      <table><thead><tr><th>Deal</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Subscribed</th><th>Action</th></tr></thead><tbody>
+        {{range .Deals}}<tr><td>{{.Name}}</td><td>{{.CompanyName}}</td><td>{{.DealType}}</td><td>{{.Status}}</td><td>{{money .SubscribedAmount}} / {{money .TargetSize}}</td><td><form method="post" action="/admin/deals/status" class="inline-form"><input type="hidden" name="deal_id" value="{{.ID}}"><select name="status"><option value="open">open</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select><input name="note" value="Deal status review"><button class="small">{{t $.Lang "form.submit"}}</button></form></td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}
+      </tbody></table>
+    </section>
+    <section>
       <h2>Review Queue</h2>
       <table><thead><tr><th>Email</th><th>{{t .Lang "label.role"}}</th><th>KYC</th><th>Accreditation</th><th></th></tr></thead><tbody>
         {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{.Role}} · {{.RiskRating}}</td><td>{{.KYCStatus}}</td><td>AML {{.AMLStatus}} / ACC {{.AccreditationStatus}}</td><td class="action-cell"><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}

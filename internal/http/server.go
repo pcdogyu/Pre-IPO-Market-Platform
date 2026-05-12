@@ -116,6 +116,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin", s.requireAdmin(s.admin))
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
 	mux.HandleFunc("/admin/deals/create", s.requireAdmin(s.createDeal))
+	mux.HandleFunc("/admin/deals/status", s.requireAdmin(s.updateDealStatus))
 	mux.HandleFunc("/admin/users/risk-rating", s.requireAdmin(s.updateUserRiskRating))
 	mux.HandleFunc("/admin/matches/create", s.requireAdmin(s.createMatch))
 	mux.HandleFunc("/admin/documents/create", s.requireAdmin(s.createDocument))
@@ -537,6 +538,23 @@ func (s *Server) dealActions(w http.ResponseWriter, r *http.Request, user domain
 		return
 	}
 	http.Redirect(w, r, "/deals", http.StatusSeeOther)
+}
+
+func (s *Server) updateDealStatus(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
+		return
+	}
+	dealID, _ := strconv.ParseInt(r.FormValue("deal_id"), 10, 64)
+	if err := s.store.UpdateDealStatus(r.Context(), user.ID, dealID, r.FormValue("status"), r.FormValue("note")); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.User) {

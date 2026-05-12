@@ -338,6 +338,69 @@ func TestSubscriptionActivationAllocatesSPVUnits(t *testing.T) {
 	}
 }
 
+func TestAdminCanUpdateDealStatus(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "paused", "bad status"); err == nil {
+		t.Fatal("invalid deal status should fail")
+	}
+	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "closed", "Capacity review"); err != nil {
+		t.Fatalf("close deal: %v", err)
+	}
+	closed, err := s.Deal(1)
+	if err != nil {
+		t.Fatalf("deal: %v", err)
+	}
+	if closed.Status != "closed" {
+		t.Fatalf("deal status got %s, want closed", closed.Status)
+	}
+	if err := s.CreateSubscription(context.Background(), investor.ID, 1, 30000); err == nil {
+		t.Fatal("closed deal should reject subscriptions")
+	}
+	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "open", "Reopened after allocation review"); err != nil {
+		t.Fatalf("reopen deal: %v", err)
+	}
+	if err := s.CreateSubscription(context.Background(), investor.ID, 1, 30000); err != nil {
+		t.Fatalf("create subscription after reopen: %v", err)
+	}
+	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "cancelled", "Issuer paused allocation"); err != nil {
+		t.Fatalf("cancel deal: %v", err)
+	}
+	subscriptions, err := s.Subscriptions(admin)
+	if err != nil {
+		t.Fatalf("subscriptions: %v", err)
+	}
+	var cancelled bool
+	for _, subscription := range subscriptions {
+		if subscription.DealID == 1 && subscription.Status == domain.SubscriptionCancelled {
+			cancelled = true
+		}
+	}
+	if !cancelled {
+		t.Fatal("expected pending subscriptions cancelled with deal")
+	}
+	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "open", "reopen cancelled"); err == nil {
+		t.Fatal("cancelled deal should not reopen")
+	}
+	notifications, err := s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Title == "Deal status updated" {
+			return
+		}
+	}
+	t.Fatal("expected deal status notification")
+}
+
 func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin@demo.local", "demo123")

@@ -195,6 +195,35 @@ func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 	}
 }
 
+func TestAdminCanUpdateDealStatus(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin@demo.local")
+	form := url.Values{"deal_id": {"1"}, "status": {"closed"}, "note": {"Capacity review"}}
+	req := httptest.NewRequest(http.MethodPost, "/admin/deals/status", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("deal status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Deal Pipeline") {
+		t.Fatal("admin should render deal pipeline")
+	}
+	if !strings.Contains(body, "Capacity review") {
+		t.Fatal("admin audit log should render deal status note")
+	}
+}
+
 func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin@demo.local")

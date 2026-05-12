@@ -1384,6 +1384,79 @@ func (s *Store) CreateDeal(ctx context.Context, actorID int64, deal domain.Deal)
 	return tx.Commit()
 }
 
+func (s *Store) UpdateDealStatus(ctx context.Context, actorID, dealID int64, status, note string) error {
+	if !validDealStatus(status) {
+		return fmt.Errorf("invalid deal status: %s", status)
+	}
+	if dealID <= 0 {
+		return fmt.Errorf("valid deal is required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var current string
+	var dealName string
+	if err := tx.QueryRowContext(ctx, `SELECT status, name FROM deals WHERE id = ?`, dealID).Scan(&current, &dealName); err != nil {
+		return err
+	}
+	if current == "cancelled" && status != "cancelled" {
+		return fmt.Errorf("cancelled deal cannot be reopened")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE deals SET status = ? WHERE id = ?`, status, dealID); err != nil {
+		return err
+	}
+	if status == "cancelled" {
+		if _, err := tx.ExecContext(ctx, `UPDATE subscriptions SET status = ? WHERE deal_id = ? AND status NOT IN (?, ?)`,
+			string(domain.SubscriptionCancelled), dealID, string(domain.SubscriptionActive), string(domain.SubscriptionCancelled)); err != nil {
+			return err
+		}
+	}
+	subscriberIDs, err := dealSubscriberIDs(ctx, tx, dealID)
+	if err != nil {
+		return err
+	}
+	if note == "" {
+		note = "deal status updated"
+	}
+	if err := insertAudit(ctx, tx, actorID, "update_deal_status", "deal", dealID, fmt.Sprintf("%s -> %s: %s", current, status, note)); err != nil {
+		return err
+	}
+	for _, userID := range subscriberIDs {
+		if err := insertNotification(ctx, tx, userID, "Deal status updated", fmt.Sprintf("%s moved from %s to %s", dealName, current, status)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func validDealStatus(status string) bool {
+	switch status {
+	case "open", "closed", "cancelled":
+		return true
+	default:
+		return false
+	}
+}
+
+func dealSubscriberIDs(ctx context.Context, tx *sql.Tx, dealID int64) ([]int64, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT investor_id FROM subscriptions WHERE deal_id = ?`, dealID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (s *Store) Subscriptions(user domain.User) ([]domain.Subscription, error) {
 	query := `SELECT s.id, s.investor_id, u.name, s.deal_id, d.name, s.amount, s.status
 		FROM subscriptions s JOIN users u ON u.id = s.investor_id JOIN deals d ON d.id = s.deal_id`

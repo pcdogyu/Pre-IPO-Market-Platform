@@ -83,6 +83,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/auth/login", s.login)
 	mux.HandleFunc("/logout", s.logout)
 	mux.HandleFunc("/language", s.requireAuth(s.language))
+	mux.HandleFunc("/notifications/read-all", s.requireAuth(s.markAllNotificationsRead))
 	mux.HandleFunc("/notifications/", s.requireAuth(s.markNotificationRead))
 	mux.HandleFunc("/dashboard", s.requireAuth(s.dashboard))
 	mux.HandleFunc("/companies", s.requireAuth(s.companies))
@@ -233,6 +234,19 @@ func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	_ = s.store.MarkNotificationRead(r.Context(), user.ID, id)
+	redirect := r.Header.Get("Referer")
+	if redirect == "" {
+		redirect = "/dashboard"
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
+func (s *Server) markAllNotificationsRead(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	_ = s.store.MarkAllNotificationsRead(r.Context(), user.ID)
 	redirect := r.Header.Get("Referer")
 	if redirect == "" {
 		redirect = "/dashboard"

@@ -6,7 +6,7 @@
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">{{.User.Name}}</p><h1>{{t .Lang "portfolio.title"}}</h1></div></section>
     <section>
-      <h2>Notifications</h2>
+      <div class="section-head"><h2>Notifications</h2><form method="post" action="/notifications/read-all"><button class="small secondary">Mark all read</button></form></div>
       <table><thead><tr><th>Title</th><th>Message</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .Notifications}}<tr><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.Status}}</td><td>{{if eq .Status "unread"}}<form method="post" action="/notifications/{{.ID}}/read"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section><h2>Holdings</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Source</th><th>Cost</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Holdings}}<tr><td>{{.CompanyName}}</td><td>{{.SourceType}}</td><td>{{money .Cost}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>

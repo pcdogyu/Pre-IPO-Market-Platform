@@ -454,4 +454,19 @@ func TestNotificationWorkflow(t *testing.T) {
 			t.Fatalf("notification status got %s, want read", notification.Status)
 		}
 	}
+	if err := s.AdvanceTransaction(context.Background(), admin.ID, 1); err != nil {
+		t.Fatalf("advance transaction again: %v", err)
+	}
+	if err := s.MarkAllNotificationsRead(context.Background(), investor.ID); err != nil {
+		t.Fatalf("mark all notifications read: %v", err)
+	}
+	notifications, err = s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications after mark all: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Status == "unread" {
+			t.Fatalf("notification %d should be read", notification.ID)
+		}
+	}
 }

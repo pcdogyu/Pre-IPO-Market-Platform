@@ -1380,6 +1380,21 @@ func (s *Store) MarkNotificationRead(ctx context.Context, userID, notificationID
 	return tx.Commit()
 }
 
+func (s *Store) MarkAllNotificationsRead(ctx context.Context, userID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE notifications SET status = 'read' WHERE user_id = ? AND status = 'unread'`, userID); err != nil {
+		return err
+	}
+	if err := insertAudit(ctx, tx, userID, "mark_all_notifications_read", "notification", userID, "all unread notifications -> read"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) RiskAlerts() ([]domain.RiskAlert, error) {
 	rows, err := s.db.Query(`SELECT id, severity, status, subject, note, created_at FROM risk_alerts ORDER BY id DESC`)
 	if err != nil {

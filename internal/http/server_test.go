@@ -269,4 +269,12 @@ func TestUserCanMarkNotificationRead(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "Notifications") {
 		t.Fatal("dashboard should render notifications")
 	}
+
+	req = httptest.NewRequest(http.MethodPost, "/notifications/read-all", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("notification read all status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
 }

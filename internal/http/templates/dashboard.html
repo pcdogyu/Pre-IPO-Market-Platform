@@ -31,7 +31,7 @@
       <div class="metric"><span>{{t .Lang "nav.portfolio"}}</span><strong>{{index .Stats "holdings"}}</strong></div>
     </section>
     <section>
-      <h2>Notifications</h2>
+      <div class="section-head"><h2>Notifications</h2><form method="post" action="/notifications/read-all"><button class="small secondary">Mark all read</button></form></div>
       <table><thead><tr><th>Title</th><th>Message</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
         {{range .Notifications}}<tr><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.Status}}</td><td>{{if eq .Status "unread"}}<form method="post" action="/notifications/{{.ID}}/read"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>

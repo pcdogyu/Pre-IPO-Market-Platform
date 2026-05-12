@@ -63,6 +63,7 @@ dd { margin: 0; font-weight: 800; }
 .match-form { display: grid; grid-template-columns: 1.5fr 1.5fr 0.8fr 0.8fr auto; gap: 12px; align-items: end; }
 .actions { display: flex; gap: 12px; margin-top: 24px; }
 .action-cell { display: flex; gap: 8px; flex-wrap: wrap; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .list { display: grid; gap: 10px; }
 .row-link { display: flex; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
 .row-link span { color: var(--muted); }

@@ -566,6 +566,44 @@ func (s *Store) Users() ([]domain.User, error) {
 	return users, rows.Err()
 }
 
+func (s *Store) UpdateUserRiskRating(ctx context.Context, actorID, userID int64, rating, note string) error {
+	switch rating {
+	case "low", "medium", "high":
+	default:
+		return fmt.Errorf("invalid risk rating: %s", rating)
+	}
+	if userID <= 0 {
+		return fmt.Errorf("valid user is required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var email string
+	if err := tx.QueryRowContext(ctx, `SELECT email FROM users WHERE id = ?`, userID).Scan(&email); err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `UPDATE users SET risk_rating = ? WHERE id = ?`, rating, userID)
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	if note == "" {
+		note = "risk rating updated"
+	}
+	if err := insertAudit(ctx, tx, actorID, "update_user_risk_rating", "user", userID, fmt.Sprintf("%s -> %s: %s", email, rating, note)); err != nil {
+		return err
+	}
+	if err := insertNotification(ctx, tx, userID, "Risk rating updated", fmt.Sprintf("Your platform risk rating is now %s", rating)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) ApproveUser(ctx context.Context, actorID, userID int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

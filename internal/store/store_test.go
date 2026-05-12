@@ -526,6 +526,41 @@ func TestComplianceReviewWorkflow(t *testing.T) {
 	t.Fatal("expected compliance review notification")
 }
 
+func TestAdminCanUpdateUserRiskRating(t *testing.T) {
+	s := testStore(t)
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "bad", "invalid"); err == nil {
+		t.Fatal("invalid risk rating should fail")
+	}
+	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "high", "Annual suitability review"); err != nil {
+		t.Fatalf("update risk rating: %v", err)
+	}
+	updated, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate updated investor: %v", err)
+	}
+	if updated.RiskRating != "high" {
+		t.Fatalf("risk rating got %s, want high", updated.RiskRating)
+	}
+	notifications, err := s.Notifications(investor.ID, 10)
+	if err != nil {
+		t.Fatalf("notifications: %v", err)
+	}
+	for _, notification := range notifications {
+		if notification.Title == "Risk rating updated" {
+			return
+		}
+	}
+	t.Fatal("expected risk rating notification")
+}
+
 func TestNegotiationWorkflows(t *testing.T) {
 	s := testStore(t)
 	investor, err := s.Authenticate("investor@demo.local", "demo123")

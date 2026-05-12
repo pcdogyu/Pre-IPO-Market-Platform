@@ -116,6 +116,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin", s.requireAdmin(s.admin))
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
 	mux.HandleFunc("/admin/deals/create", s.requireAdmin(s.createDeal))
+	mux.HandleFunc("/admin/users/risk-rating", s.requireAdmin(s.updateUserRiskRating))
 	mux.HandleFunc("/admin/matches/create", s.requireAdmin(s.createMatch))
 	mux.HandleFunc("/admin/documents/create", s.requireAdmin(s.createDocument))
 	mux.HandleFunc("/admin/documents/", s.requireAdmin(s.advanceDocument))
@@ -657,6 +658,23 @@ func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain
 	shares, _ := strconv.ParseInt(r.FormValue("shares"), 10, 64)
 	price, _ := strconv.ParseFloat(r.FormValue("price"), 64)
 	if err := s.store.CreateMatchedTransaction(r.Context(), user.ID, sellOrderID, buyInterestID, shares, price); err != nil {
+		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (s *Server) updateUserRiskRating(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
+		return
+	}
+	userID, _ := strconv.ParseInt(r.FormValue("user_id"), 10, 64)
+	if err := s.store.UpdateUserRiskRating(r.Context(), user.ID, userID, r.FormValue("risk_rating"), r.FormValue("note")); err != nil {
 		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
 		return
 	}

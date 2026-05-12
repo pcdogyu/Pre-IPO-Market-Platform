@@ -48,6 +48,12 @@
       </tbody></table>
     </section>
     <section>
+      <h2>User Risk Ratings</h2>
+      <table><thead><tr><th>User</th><th>{{t .Lang "label.role"}}</th><th>KYC / AML / ACC</th><th>Risk</th><th>Action</th></tr></thead><tbody>
+        {{range .Users}}<tr><td>{{.Name}} · {{.Email}}</td><td>{{.Role}}</td><td>{{.KYCStatus}} / {{.AMLStatus}} / {{.AccreditationStatus}}</td><td>{{.RiskRating}}</td><td><form method="post" action="/admin/users/risk-rating" class="inline-form"><input type="hidden" name="user_id" value="{{.ID}}"><select name="risk_rating"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select><input name="note" value="Periodic risk review"><button class="small">{{t $.Lang "form.submit"}}</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
+      </tbody></table>
+    </section>
+    <section>
       <h2>Compliance Reviews</h2>
       <table><thead><tr><th>User</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Note</th><th>Submitted</th><th></th></tr></thead><tbody>
         {{range .ComplianceReviews}}<tr><td>{{.UserName}} · {{.UserEmail}}</td><td>{{.ReviewType}}</td><td>{{.Status}}</td><td>{{.Note}}</td><td>{{.SubmittedAt}}</td><td class="action-cell">{{if eq .Status "pending_review"}}<form method="post" action="/admin/compliance-reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/compliance-reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}

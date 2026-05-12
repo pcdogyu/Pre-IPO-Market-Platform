@@ -253,3 +253,39 @@ func TestRejectAndCancelWorkflows(t *testing.T) {
 		t.Fatal("expected cancelled subscription")
 	}
 }
+
+func TestNegotiationWorkflows(t *testing.T) {
+	s := testStore(t)
+	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.CreateNegotiation(context.Background(), investor, 1, 41.75, 800, "Buyer counter offer"); err != nil {
+		t.Fatalf("create investor negotiation: %v", err)
+	}
+	negotiations, err := s.Negotiations(investor)
+	if err != nil {
+		t.Fatalf("negotiations: %v", err)
+	}
+	var found bool
+	for _, negotiation := range negotiations {
+		if negotiation.Note == "Buyer counter offer" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected investor negotiation")
+	}
+
+	outsider := domain.User{ID: 999, Role: domain.RoleInvestor}
+	if err := s.CreateNegotiation(context.Background(), outsider, 1, 40, 100, "Invalid"); err == nil {
+		t.Fatal("outsider should not negotiate another user's transaction")
+	}
+	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate admin: %v", err)
+	}
+	if err := s.CreateNegotiation(context.Background(), admin, 1, 42, 800, "Admin note"); err != nil {
+		t.Fatalf("admin negotiation: %v", err)
+	}
+}

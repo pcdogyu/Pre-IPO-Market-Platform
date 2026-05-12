@@ -62,6 +62,18 @@
       </div>
     </section>
     <section class="grid two">
+      <form method="post" action="/negotiations/create" class="panel stack">
+        <h2>Admin Counter Offer</h2>
+        <input type="hidden" name="redirect" value="/admin">
+        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.price"}}<input name="offer_price" type="number" min="0.01" step="0.01" value="42.00" required></label>
+        <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="800" required></label>
+        <label>Note<input name="note" value="Admin negotiation note"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+      <div><h2>Negotiation History</h2><table><thead><tr><th>Txn</th><th>Actor</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.shares"}}</th><th>Note</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{money .OfferPrice}}</td><td>{{.Shares}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+    </section>
+    <section class="grid two">
       <div><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Manager</th><th>Units</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Manager}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div><h2>Execution Documents</h2><table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>

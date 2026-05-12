@@ -98,6 +98,15 @@ func (s *Store) Migrate() error {
 			company_approval_status TEXT NOT NULL DEFAULT 'not_started',
 			escrow_status TEXT NOT NULL DEFAULT 'not_started'
 		)`,
+		`CREATE TABLE IF NOT EXISTS negotiations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+			actor_id INTEGER NOT NULL REFERENCES users(id),
+			offer_price REAL NOT NULL,
+			shares INTEGER NOT NULL,
+			note TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS deals (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			company_id INTEGER NOT NULL REFERENCES companies(id),
@@ -281,6 +290,11 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO transactions (buyer_id, seller_id, company_id, shares, price, stage, document_status, rofr_status, company_approval_status, escrow_status) VALUES (2, 3, 1, 800, 42.00, 'matched', 'drafted', 'not_started', 'not_started', 'not_started')`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO negotiations (transaction_id, actor_id, offer_price, shares, note, created_at) VALUES
+		(1, 2, 41.50, 800, 'Buyer requests modest discount for ROFR timing risk.', ?),
+		(1, 3, 42.00, 800, 'Seller accepts if SPA is signed this week.', ?)`, time.Now().Add(-2*time.Hour).Format(time.RFC3339), time.Now().Add(-1*time.Hour).Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES
@@ -674,6 +688,71 @@ func (s *Store) Transactions(user domain.User) ([]domain.Transaction, error) {
 		transactions = append(transactions, transaction)
 	}
 	return transactions, rows.Err()
+}
+
+func (s *Store) Negotiations(user domain.User) ([]domain.Negotiation, error) {
+	query := `SELECT n.id, n.transaction_id, n.actor_id, u.name, u.role, n.offer_price, n.shares, n.note, n.created_at
+		FROM negotiations n
+		JOIN users u ON u.id = n.actor_id
+		JOIN transactions t ON t.id = n.transaction_id`
+	var rows *sql.Rows
+	var err error
+	switch user.Role {
+	case domain.RoleInvestor, domain.RoleInstitution:
+		rows, err = s.db.Query(query+` WHERE t.buyer_id = ? ORDER BY n.id DESC`, user.ID)
+	case domain.RoleSeller:
+		rows, err = s.db.Query(query+` WHERE t.seller_id = ? ORDER BY n.id DESC`, user.ID)
+	default:
+		rows, err = s.db.Query(query + ` ORDER BY n.id DESC`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var negotiations []domain.Negotiation
+	for rows.Next() {
+		var negotiation domain.Negotiation
+		if err := rows.Scan(&negotiation.ID, &negotiation.TransactionID, &negotiation.ActorID, &negotiation.ActorName, &negotiation.ActorRole, &negotiation.OfferPrice, &negotiation.Shares, &negotiation.Note, &negotiation.CreatedAt); err != nil {
+			return nil, err
+		}
+		negotiations = append(negotiations, negotiation)
+	}
+	return negotiations, rows.Err()
+}
+
+func (s *Store) CreateNegotiation(ctx context.Context, actor domain.User, transactionID int64, offerPrice float64, shares int64, note string) error {
+	if transactionID <= 0 || offerPrice <= 0 || shares <= 0 {
+		return fmt.Errorf("transaction, price and shares are required")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var buyerID, sellerID int64
+	var stage domain.TransactionStage
+	if err := tx.QueryRowContext(ctx, `SELECT buyer_id, seller_id, stage FROM transactions WHERE id = ?`, transactionID).Scan(&buyerID, &sellerID, &stage); err != nil {
+		return err
+	}
+	if stage == domain.StageSettled || stage == domain.StageCancelled {
+		return fmt.Errorf("transaction is already terminal: %s", stage)
+	}
+	if actor.Role != domain.RoleAdmin && actor.ID != buyerID && actor.ID != sellerID {
+		return fmt.Errorf("actor cannot negotiate this transaction")
+	}
+
+	res, err := tx.ExecContext(ctx, `INSERT INTO negotiations (transaction_id, actor_id, offer_price, shares, note, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		transactionID, actor.ID, offerPrice, shares, note, time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	if err := insertAudit(ctx, tx, actor.ID, "create_negotiation", "negotiation", id, fmt.Sprintf("transaction #%d offer %.2f x %d", transactionID, offerPrice, shares)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) AdvanceTransaction(ctx context.Context, actorID, transactionID int64) error {

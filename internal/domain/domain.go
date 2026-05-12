@@ -107,6 +107,18 @@ type Transaction struct {
 	EscrowStatus          string
 }
 
+type Negotiation struct {
+	ID            int64
+	TransactionID int64
+	ActorID       int64
+	ActorName     string
+	ActorRole     Role
+	OfferPrice    float64
+	Shares        int64
+	Note          string
+	CreatedAt     string
+}
+
 type Deal struct {
 	ID               int64
 	CompanyID        int64

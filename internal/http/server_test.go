@@ -210,3 +210,17 @@ func TestAdminCanRejectAndCancel(t *testing.T) {
 		}
 	}
 }
+
+func TestUserCanCreateNegotiation(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor@demo.local")
+	form := url.Values{"transaction_id": {"1"}, "offer_price": {"41.75"}, "shares": {"800"}, "note": {"Buyer counter offer"}, "redirect": {"/market/orders"}}
+	req := httptest.NewRequest(http.MethodPost, "/negotiations/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("negotiation status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}

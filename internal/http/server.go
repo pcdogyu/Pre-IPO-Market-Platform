@@ -35,6 +35,7 @@ type pageData struct {
 	SellOrders    []domain.SellOrder
 	BuyInterests  []domain.BuyInterest
 	Transactions  []domain.Transaction
+	Negotiations  []domain.Negotiation
 	Deals         []domain.Deal
 	Subscriptions []domain.Subscription
 	Holdings      []domain.Holding
@@ -87,6 +88,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/market/orders", s.requireAuth(s.market))
 	mux.HandleFunc("/orders/sell", s.requireAuth(s.createSellOrder))
 	mux.HandleFunc("/orders/buy-interest", s.requireAuth(s.createBuyInterest))
+	mux.HandleFunc("/negotiations/create", s.requireAuth(s.createNegotiation))
 	mux.HandleFunc("/deals", s.requireAuth(s.deals))
 	mux.HandleFunc("/deals/", s.requireAuth(s.dealActions))
 	mux.HandleFunc("/portfolio", s.requireAuth(s.portfolio))
@@ -273,7 +275,8 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 	sellOrders, _ := s.store.SellOrders(user)
 	buyInterests, _ := s.store.BuyInterests(user)
 	transactions, _ := s.store.Transactions(user)
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Error: r.URL.Query().Get("error")})
+	negotiations, _ := s.store.Negotiations(user)
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -322,6 +325,30 @@ func (s *Server) createBuyInterest(w http.ResponseWriter, r *http.Request, user 
 		return
 	}
 	http.Redirect(w, r, "/market/orders", http.StatusSeeOther)
+}
+
+func (s *Server) createNegotiation(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/market/orders?error=form", http.StatusSeeOther)
+		return
+	}
+	transactionID, _ := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	offerPrice, _ := strconv.ParseFloat(r.FormValue("offer_price"), 64)
+	shares, _ := strconv.ParseInt(r.FormValue("shares"), 10, 64)
+	note := r.FormValue("note")
+	redirect := r.FormValue("redirect")
+	if redirect == "" {
+		redirect = "/market/orders"
+	}
+	if err := s.store.CreateNegotiation(r.Context(), user, transactionID, offerPrice, shares, note); err != nil {
+		http.Redirect(w, r, redirect+"?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 func (s *Server) deals(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -393,13 +420,14 @@ func (s *Server) dealActions(w http.ResponseWriter, r *http.Request, user domain
 func (s *Server) portfolio(w http.ResponseWriter, r *http.Request, user domain.User) {
 	holdings, _ := s.store.Holdings(user.ID)
 	transactions, _ := s.store.Transactions(user)
+	negotiations, _ := s.store.Negotiations(user)
 	subscriptions, _ := s.store.Subscriptions(user)
 	valuations, _ := s.store.Valuations()
 	exitEvents, _ := s.store.ExitEvents()
 	distributions, _ := s.store.Distributions(user.ID)
 	reports, _ := s.store.Reports(user.ID)
 	tickets, _ := s.store.SupportTickets(user.ID, false)
-	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets})
+	s.render(w, r, "portfolio.html", pageData{Title: "Portfolio", User: user, Lang: user.Language, Holdings: holdings, Transactions: transactions, Negotiations: negotiations, Subscriptions: subscriptions, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, Reports: reports, Tickets: tickets})
 }
 
 func (s *Server) createSupportTicket(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -428,6 +456,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	sellOrders, _ := s.store.SellOrders(user)
 	buyInterests, _ := s.store.BuyInterests(user)
 	transactions, _ := s.store.Transactions(user)
+	negotiations, _ := s.store.Negotiations(user)
 	deals, _ := s.store.Deals()
 	spvs, _ := s.store.SPVVehicles()
 	subscriptions, _ := s.store.Subscriptions(user)
@@ -437,7 +466,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	riskAlerts, _ := s.store.RiskAlerts()
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, Documents: documents, Valuations: valuations, ExitEvents: exitEvents, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, Documents: documents, Valuations: valuations, ExitEvents: exitEvents, RiskAlerts: riskAlerts, Tickets: tickets, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {

@@ -12,6 +12,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 command -v git >/dev/null 2>&1 || { echo "git is required"; exit 1; }
 command -v go >/dev/null 2>&1 || { echo "go is required"; exit 1; }
+command -v timeout >/dev/null 2>&1 || { echo "timeout is required"; exit 1; }
 command -v systemctl >/dev/null 2>&1 || { echo "systemd is required"; exit 1; }
 command -v journalctl >/dev/null 2>&1 || { echo "journalctl is required"; exit 1; }
 
@@ -22,7 +23,7 @@ if [[ -n "$(git -C "$ROOT_DIR" status --porcelain)" ]]; then
 fi
 
 echo "Updating code..."
-git -C "$ROOT_DIR" pull --ff-only
+timeout 60s git -C "$ROOT_DIR" pull --ff-only
 
 cd "$ROOT_DIR"
 

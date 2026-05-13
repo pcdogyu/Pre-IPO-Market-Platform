@@ -13,5 +13,6 @@
       <table><thead><tr><th>Type</th><th>Title</th><th>Summary</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
+  {{template "footer.html" .}}
 </body>
 </html>

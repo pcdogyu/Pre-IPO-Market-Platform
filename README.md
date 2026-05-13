@@ -73,6 +73,37 @@ go run . --addr :8081 --db preipo_demo.db
 go run ./cmd/server
 ```
 
+### Ubuntu 后台服务
+
+在 Ubuntu 服务器上安装为 systemd 后台服务：
+
+```bash
+bash scripts/install-ubuntu-service.sh
+```
+
+默认服务名为 `preipo-market`，监听地址为 `:8080`，数据库文件为 `/var/lib/preipo-market-platform/preipo_demo.db`。安装脚本会用当前 Git 提交信息构建二进制，并在页面底部显示：
+
+```text
+Code by Yuhao@jiansutech.com - yyyy-mm-dd hh:mm - commitid - branch
+```
+
+其中提交时间使用东八区时间，格式为 `yyyy-mm-dd hh:mm`，commit id 为 8 位短 ID。
+
+常用命令：
+
+```bash
+sudo systemctl status preipo-market
+sudo journalctl -u preipo-market -f
+sudo systemctl restart preipo-market
+bash scripts/uninstall-ubuntu-service.sh
+```
+
+可通过环境变量覆盖服务名、端口和安装路径：
+
+```bash
+SERVICE_NAME=preipo-market ADDR=:8081 APP_DIR=/opt/preipo-market-platform bash scripts/install-ubuntu-service.sh
+```
+
 ### 演示账号
 
 所有演示账号密码均为：

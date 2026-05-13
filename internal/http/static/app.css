@@ -71,6 +71,8 @@ dd { margin: 0; font-weight: 800; }
 .login-page { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #e8f3f1, #f8fafc 45%, #fff7ed); }
 .login-shell { width: min(440px, calc(100% - 32px)); }
 .login-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 28px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12); }
+.app-footer { width: min(1180px, calc(100% - 32px)); margin: -32px auto 24px; color: var(--muted); font-size: 12px; text-align: center; }
+.login-page .app-footer { position: fixed; left: 16px; right: 16px; bottom: 14px; width: auto; margin: 0; }
 
 @media (max-width: 900px) {
   .topbar { align-items: flex-start; flex-direction: column; padding: 16px; gap: 12px; }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"pre-ipo-market-platform/internal/buildinfo"
 	"pre-ipo-market-platform/internal/domain"
 	"pre-ipo-market-platform/internal/i18n"
 	"pre-ipo-market-platform/internal/store"
@@ -64,6 +65,7 @@ type pageData struct {
 	PendingUsers      []domain.User
 	AuditLogs         []domain.AuditLog
 	Stats             map[string]int
+	BuildLabel        string
 }
 
 func NewServer(store *store.Store) *Server {
@@ -153,6 +155,9 @@ type handlerFunc func(http.ResponseWriter, *http.Request, domain.User)
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data pageData) {
 	if data.Lang == "" {
 		data.Lang = "zh"
+	}
+	if data.BuildLabel == "" {
+		data.BuildLabel = buildinfo.FooterLabel()
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates.ExecuteTemplate(w, name, data); err != nil {

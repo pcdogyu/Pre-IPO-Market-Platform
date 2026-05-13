@@ -72,5 +72,6 @@
       <table><thead><tr><th>Ticket</th><th>Actor</th><th>Message</th><th>Time</th></tr></thead><tbody>{{range .TicketMessages}}<tr><td>#{{.TicketID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{.Message}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
+  {{template "footer.html" .}}
 </body>
 </html>

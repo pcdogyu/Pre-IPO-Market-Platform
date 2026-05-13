@@ -227,5 +227,6 @@
       <table><thead><tr><th>Actor</th><th>Action</th><th>Object</th><th>Note</th><th>Time</th></tr></thead><tbody>{{range .AuditLogs}}<tr><td>{{.ActorName}}</td><td>{{.Action}}</td><td>{{.ObjectType}} #{{.ObjectID}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
+  {{template "footer.html" .}}
 </body>
 </html>

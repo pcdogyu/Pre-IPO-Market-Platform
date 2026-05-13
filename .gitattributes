@@ -1,0 +1,2 @@
+*.sh text eol=lf
+deploy/ubuntu/*.service text eol=lf

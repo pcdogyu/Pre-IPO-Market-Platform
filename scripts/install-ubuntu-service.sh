@@ -4,7 +4,7 @@ set -euo pipefail
 SERVICE_NAME="${SERVICE_NAME:-preipo-market}"
 APP_DIR="${APP_DIR:-/opt/preipo-market-platform}"
 STATE_DIR="${STATE_DIR:-/var/lib/preipo-market-platform}"
-ADDR="${ADDR:-:8080}"
+ADDR="${ADDR:-:80}"
 DB_PATH="${DB_PATH:-$STATE_DIR/preipo_demo.db}"
 BIN_PATH="$APP_DIR/preipo-market-platform"
 
@@ -50,6 +50,8 @@ Restart=on-failure
 RestartSec=5
 DynamicUser=yes
 StateDirectory=$(basename "$STATE_DIR")
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full

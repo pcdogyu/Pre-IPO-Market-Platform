@@ -81,7 +81,7 @@ go run ./cmd/server
 bash scripts/install-ubuntu-service.sh
 ```
 
-默认服务名为 `preipo-market`，监听地址为 `:8080`，数据库文件为 `/var/lib/preipo-market-platform/preipo_demo.db`。安装脚本会用当前 Git 提交信息构建二进制，并在页面底部显示：
+默认服务名为 `preipo-market`，监听地址为 `:80`，数据库文件为 `/var/lib/preipo-market-platform/preipo_demo.db`。安装脚本会用当前 Git 提交信息构建二进制，并在页面底部显示：
 
 ```text
 Code by Yuhao@jiansutech.com - yyyy-mm-dd hh:mm - commitid - branch

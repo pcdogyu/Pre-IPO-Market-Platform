@@ -50,7 +50,7 @@ Pre-IPO Market Platform 是一个面向 Pre-IPO 股权流转场景的 Go Web MVP
 ### 本地运行
 
 ```bash
-go run ./cmd/server
+go run .
 ```
 
 默认服务地址：
@@ -62,10 +62,16 @@ http://localhost:8080
 可指定监听地址和数据库文件：
 
 ```bash
-go run ./cmd/server --addr :8081 --db preipo_demo.db
+go run . --addr :8081 --db preipo_demo.db
 ```
 
 首次启动会自动执行数据库迁移并写入演示数据。默认数据库文件为 `preipo_demo.db`。
+
+兼容入口仍然可用：
+
+```bash
+go run ./cmd/server
+```
 
 ### 演示账号
 
@@ -165,7 +171,7 @@ The project is designed as a functional, testable prototype. It is not a product
 ### Run Locally
 
 ```bash
-go run ./cmd/server
+go run .
 ```
 
 Default URL:
@@ -177,10 +183,16 @@ http://localhost:8080
 You can override the listen address and database path:
 
 ```bash
-go run ./cmd/server --addr :8081 --db preipo_demo.db
+go run . --addr :8081 --db preipo_demo.db
 ```
 
 On first startup, the app runs migrations and seeds demo data automatically. The default database file is `preipo_demo.db`.
+
+The compatibility entrypoint is still available:
+
+```bash
+go run ./cmd/server
+```
 
 ### Demo Accounts
 

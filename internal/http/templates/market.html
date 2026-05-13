@@ -4,7 +4,7 @@
 <body>
   <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
-    <section class="page-head"><div><p class="eyebrow">Secondary Market</p><h1>{{t .Lang "market.title"}}</h1></div></section>
+    <section class="page-head"><div><p class="eyebrow">{{t .Lang "market.title"}}</p><h1>{{t .Lang "market.title"}}</h1></div></section>
     {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
     <section class="metric-grid">
       <div class="metric"><span>{{t .Lang "nav.companies"}}</span><strong>{{index .Stats "companies"}}</strong></div>
@@ -37,31 +37,31 @@
       {{end}}
     </section>
     <section class="grid two">
-      <div><h2>Sell Orders</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .SellOrders}}<tr><td>{{.CompanyName}}</td><td>{{.Shares}}</td><td>{{money .TargetPrice}}</td><td>{{.Status}}</td><td>{{if and (eq .Status "open") (eq .SellerID $.User.ID)}}<form method="post" action="/orders/sell/cancel"><input type="hidden" name="order_id" value="{{.ID}}"><button class="small danger">Cancel</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
-      <div><h2>Buy Interests</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .BuyInterests}}<tr><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{money .TargetPrice}}</td><td>{{statusLabel .Status}}</td><td>{{if and (eq .Status "interest_submitted") (eq .InvestorID $.User.ID)}}<form method="post" action="/orders/buy-interest/cancel"><input type="hidden" name="interest_id" value="{{.ID}}"><button class="small danger">Cancel</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.sell_orders"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .SellOrders}}<tr><td>{{.CompanyName}}</td><td>{{.Shares}}</td><td>{{money .TargetPrice}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if and (eq .Status "open") (eq .SellerID $.User.ID)}}<form method="post" action="/orders/sell/cancel"><input type="hidden" name="order_id" value="{{.ID}}"><button class="small danger">{{t $.Lang "label.cancel"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.buy_interests"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .BuyInterests}}<tr><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{money .TargetPrice}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if and (eq .Status "interest_submitted") (eq .InvestorID $.User.ID)}}<form method="post" action="/orders/buy-interest/cancel"><input type="hidden" name="interest_id" value="{{.ID}}"><button class="small danger">{{t $.Lang "label.cancel"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
-    <section><h2>Transactions</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Buyer</th><th>Seller</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.status"}}</th><th>Escrow</th></tr></thead><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{.BuyerName}}</td><td>{{.SellerName}}</td><td>{{.Shares}}</td><td>{{statusLabel .Stage}}</td><td>{{.EscrowStatus}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>{{t .Lang "label.transactions"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.buyer"}}</th><th>{{t .Lang "label.seller"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.escrow"}}</th></tr></thead><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{.BuyerName}}</td><td>{{.SellerName}}</td><td>{{.Shares}}</td><td>{{statusLabel .Stage $.Lang}}</td><td>{{statusLabel .EscrowStatus $.Lang}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section>
-      <h2>Escrow Payments</h2>
-      <table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Reference</th><th>Note</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.Reference}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.escrow_payments"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.reference"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.Reference}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
-      <h2>ROFR / Company Approvals</h2>
-      <table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Due</th><th>Decided</th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{.ApprovalType}}</td><td>{{.Status}}</td><td>{{.DueDate}}</td><td>{{.DecidedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.approvals"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.due"}}</th><th>{{t .Lang "label.decided"}}</th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{statusLabel .ApprovalType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.DueDate}}</td><td>{{.DecidedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
-        <h2>Negotiation / Counter Offer</h2>
+        <h2>{{t .Lang "label.negotiation"}}</h2>
         <input type="hidden" name="redirect" value="/market/orders">
-        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.price"}}<input name="offer_price" type="number" min="0.01" step="0.01" value="42.00" required></label>
         <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="800" required></label>
-        <label>Note<input name="note" value="Counterparty note"></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="交易对手备注"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
       <div>
-        <h2>Negotiation History</h2>
-        <table><thead><tr><th>Txn</th><th>Actor</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.shares"}}</th><th>Note</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{money .OfferPrice}}</td><td>{{.Shares}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+        <h2>{{t .Lang "label.negotiation_history"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.actor"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}} · {{statusLabel .ActorRole $.Lang}}</td><td>{{money .OfferPrice}}</td><td>{{.Shares}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
       </div>
     </section>
   </main>

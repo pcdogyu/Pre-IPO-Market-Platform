@@ -4,14 +4,14 @@
 <body>
   <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
-    <section class="page-head"><div><p class="eyebrow">Company Universe</p><h1>{{t .Lang "companies.title"}}</h1></div></section>
+    <section class="page-head"><div><p class="eyebrow">{{t .Lang "label.company_universe"}}</p><h1>{{t .Lang "companies.title"}}</h1></div></section>
     <section class="cards">
       {{range .Companies}}
       <article class="card">
-        <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{.TradableStatus}}</span></div>
+        <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{statusLabel .TradableStatus $.Lang}}</span></div>
         <p>{{.Description}}</p>
-        <dl class="facts"><div><dt>{{t $.Lang "label.industry"}}</dt><dd>{{.Industry}}</dd></div><div><dt>{{t $.Lang "label.valuation"}}</dt><dd>{{.Valuation}}</dd></div><div><dt>Share Price</dt><dd>{{money .SharePrice}}</dd></div><div><dt>{{t $.Lang "label.round"}}</dt><dd>{{.FundingRound}}</dd></div><div><dt>Restrictions</dt><dd>{{.TransferRestrictions}}</dd></div></dl>
-        <div class="actions"><a class="button secondary" href="/companies/{{.ID}}">View</a>{{if index $.WatchlistMap .ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.ID}}"><button class="secondary">Unwatch</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.ID}}"><button>Watch</button></form>{{end}}</div>
+        <dl class="facts"><div><dt>{{t $.Lang "label.industry"}}</dt><dd>{{.Industry}}</dd></div><div><dt>{{t $.Lang "label.valuation"}}</dt><dd>{{.Valuation}}</dd></div><div><dt>{{t $.Lang "label.share_price"}}</dt><dd>{{money .SharePrice}}</dd></div><div><dt>{{t $.Lang "label.round"}}</dt><dd>{{.FundingRound}}</dd></div><div><dt>{{t $.Lang "label.transfer_restrictions"}}</dt><dd>{{.TransferRestrictions}}</dd></div></dl>
+        <div class="actions"><a class="button secondary" href="/companies/{{.ID}}">{{t $.Lang "label.view"}}</a>{{if index $.WatchlistMap .ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.ID}}"><button class="secondary">{{t $.Lang "label.unwatch"}}</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.ID}}"><button>{{t $.Lang "label.watch"}}</button></form>{{end}}</div>
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>

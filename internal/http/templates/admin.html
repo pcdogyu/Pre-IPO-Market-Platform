@@ -4,27 +4,27 @@
 <body>
   <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a><a href="/admin">{{t .Lang "nav.admin"}}</a></nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
-    <section class="page-head"><div><p class="eyebrow">Operations</p><h1>{{t .Lang "admin.title"}}</h1></div></section>
+    <section class="page-head"><div><p class="eyebrow">运营</p><h1>{{t .Lang "admin.title"}}</h1></div></section>
     {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
     <section class="grid two">
       <form method="post" action="/admin/companies/create" class="panel stack">
-        <h2>Company Asset Library</h2>
-        <label>Name<input name="name" value="Atlas Robotics" required></label>
+        <h2>公司资产库</h2>
+        <label>名称<input name="name" value="星河机器人" required></label>
         <label>{{t .Lang "label.industry"}}<input name="industry" value="Industrial automation" required></label>
         <label>{{t .Lang "label.valuation"}}<input name="valuation" value="$1.4B" required></label>
         <label>{{t .Lang "label.round"}}<input name="funding_round" value="Series C"></label>
-        <label>Share Price<input name="share_price" type="number" min="0" step="0.01" value="22.50"></label>
+        <label>{{t .Lang "label.share_price"}}<input name="share_price" type="number" min="0" step="0.01" value="22.50"></label>
         <label>{{t .Lang "label.status"}}<select name="tradable_status"><option value="tradable">tradable</option><option value="limited">limited</option></select></label>
-        <label>Transfer Restrictions<input name="transfer_restrictions" value="ROFR + company consent"></label>
-        <label>Description<input name="description" value="Pre-IPO company profile created by admin."></label>
+        <label>{{t .Lang "label.transfer_restrictions"}}<input name="transfer_restrictions" value="优先购买权 + 公司同意"></label>
+        <label>描述<input name="description" value="由管理员创建的 Pre-IPO 公司资产。"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
       <form method="post" action="/admin/deals/create" class="panel stack">
-        <h2>Project / Deal Builder</h2>
+        <h2>项目创建</h2>
         <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-        <label>Name<input name="name" value="New Growth SPV" required></label>
-        <label>Deal Type<select name="deal_type"><option value="spv">SPV</option><option value="fund_basket">Fund Basket</option><option value="direct_secondary">Direct Secondary</option></select></label>
-        <label>Structure<input name="structure" value="Single-company SPV with pro-rata units"></label>
+        <label>名称<input name="name" value="新增长 SPV" required></label>
+        <label>项目类型<select name="deal_type"><option value="spv">SPV</option><option value="fund_basket">基金组合</option><option value="direct_secondary">直接二级转让</option></select></label>
+        <label>结构<input name="structure" value="单一公司 SPV，按比例分配份额"></label>
         <label>{{t .Lang "label.minimum"}}<input name="min_subscription" type="number" min="1" value="25000"></label>
         <label>{{t .Lang "label.target"}}<input name="target_size" type="number" min="1" value="5000000"></label>
         <label>{{t .Lang "label.fees"}}<input name="fee_description" value="2% management fee"></label>
@@ -32,199 +32,199 @@
       </form>
     </section>
     <section class="panel">
-      <h2>Create Match</h2>
+      <h2>创建撮合</h2>
       <form method="post" action="/admin/matches/create" class="match-form">
-        <label>Sell Order<select name="sell_order_id">{{range .SellOrders}}{{if eq .Status "open"}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .TargetPrice}}</option>{{end}}{{end}}</select></label>
-        <label>Buy Interest<select name="buy_interest_id">{{range .BuyInterests}}{{if eq .Status "interest_submitted"}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{money .Amount}} @ {{money .TargetPrice}}</option>{{end}}{{end}}</select></label>
+        <label>卖出订单<select name="sell_order_id">{{range .SellOrders}}{{if eq .Status "open"}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .TargetPrice}}</option>{{end}}{{end}}</select></label>
+        <label>买入意向<select name="buy_interest_id">{{range .BuyInterests}}{{if eq .Status "interest_submitted"}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{money .Amount}} @ {{money .TargetPrice}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="500" required></label>
-        <label>Match Price<input name="price" type="number" min="1" step="0.01" value="42.00" required></label>
+        <label>撮合价格<input name="price" type="number" min="1" step="0.01" value="42.00" required></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
     </section>
     <section>
-      <h2>Deal Pipeline</h2>
-      <table><thead><tr><th>Deal</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Subscribed</th><th>Action</th></tr></thead><tbody>
-        {{range .Deals}}<tr><td>{{.Name}}</td><td>{{.CompanyName}}</td><td>{{.DealType}}</td><td>{{.Status}}</td><td>{{money .SubscribedAmount}} / {{money .TargetSize}}</td><td><form method="post" action="/admin/deals/status" class="inline-form"><input type="hidden" name="deal_id" value="{{.ID}}"><select name="status"><option value="open">open</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select><input name="note" value="Deal status review"><button class="small">{{t $.Lang "form.submit"}}</button></form></td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}
+      <h2>项目流水线</h2>
+      <table><thead><tr><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>已认购</th><th>操作</th></tr></thead><tbody>
+        {{range .Deals}}<tr><td>{{.Name}}</td><td>{{.CompanyName}}</td><td>{{statusLabel .DealType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{money .SubscribedAmount}} / {{money .TargetSize}}</td><td><form method="post" action="/admin/deals/status" class="inline-form"><input type="hidden" name="deal_id" value="{{.ID}}"><select name="status"><option value="open">开放</option><option value="closed">关闭</option><option value="cancelled">取消</option></select><input name="note" value="项目状态复核"><button class="small">{{t $.Lang "form.submit"}}</button></form></td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
     <section>
-      <h2>Review Queue</h2>
+      <h2>审核队列</h2>
       <table><thead><tr><th>Email</th><th>{{t .Lang "label.role"}}</th><th>KYC</th><th>Accreditation</th><th></th></tr></thead><tbody>
-        {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{.Role}} · {{.RiskRating}}</td><td>{{.KYCStatus}}</td><td>AML {{.AMLStatus}} / ACC {{.AccreditationStatus}}</td><td class="action-cell"><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
+        {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{statusLabel .Role $.Lang}} · {{statusLabel .RiskRating $.Lang}}</td><td>{{statusLabel .KYCStatus $.Lang}}</td><td>AML {{statusLabel .AMLStatus $.Lang}} / 合格投资人 {{statusLabel .AccreditationStatus $.Lang}}</td><td class="action-cell"><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/reviews/{{.ID}}/reject"><button class="small danger">拒绝</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
     <section>
-      <h2>User Risk Ratings</h2>
-      <table><thead><tr><th>User</th><th>{{t .Lang "label.role"}}</th><th>KYC / AML / ACC</th><th>Risk</th><th>Action</th></tr></thead><tbody>
-        {{range .Users}}<tr><td>{{.Name}} · {{.Email}}</td><td>{{.Role}}</td><td>{{.KYCStatus}} / {{.AMLStatus}} / {{.AccreditationStatus}}</td><td>{{.RiskRating}}</td><td><form method="post" action="/admin/users/risk-rating" class="inline-form"><input type="hidden" name="user_id" value="{{.ID}}"><select name="risk_rating"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select><input name="note" value="Periodic risk review"><button class="small">{{t $.Lang "form.submit"}}</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
+      <h2>用户风险评级</h2>
+      <table><thead><tr><th>用户</th><th>{{t .Lang "label.role"}}</th><th>KYC / AML / 合格投资人</th><th>风险</th><th>操作</th></tr></thead><tbody>
+        {{range .Users}}<tr><td>{{.Name}} · {{.Email}}</td><td>{{statusLabel .Role $.Lang}}</td><td>{{statusLabel .KYCStatus $.Lang}} / {{statusLabel .AMLStatus $.Lang}} / {{statusLabel .AccreditationStatus $.Lang}}</td><td>{{statusLabel .RiskRating $.Lang}}</td><td><form method="post" action="/admin/users/risk-rating" class="inline-form"><input type="hidden" name="user_id" value="{{.ID}}"><select name="risk_rating"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select><input name="note" value="定期风险复核"><button class="small">{{t $.Lang "form.submit"}}</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
     <section>
-      <h2>Compliance Reviews</h2>
-      <table><thead><tr><th>User</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Note</th><th>Submitted</th><th></th></tr></thead><tbody>
-        {{range .ComplianceReviews}}<tr><td>{{.UserName}} · {{.UserEmail}}</td><td>{{.ReviewType}}</td><td>{{.Status}}</td><td>{{.Note}}</td><td>{{.SubmittedAt}}</td><td class="action-cell">{{if eq .Status "pending_review"}}<form method="post" action="/admin/compliance-reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/compliance-reviews/{{.ID}}/reject"><button class="small danger">Reject</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}
+      <h2>合规复核</h2>
+      <table><thead><tr><th>用户</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.note"}}</th><th>{{t .Lang "label.submitted"}}</th><th></th></tr></thead><tbody>
+        {{range .ComplianceReviews}}<tr><td>{{.UserName}} · {{.UserEmail}}</td><td>{{statusLabel .ReviewType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.Note}}</td><td>{{.SubmittedAt}}</td><td class="action-cell">{{if eq .Status "pending_review"}}<form method="post" action="/admin/compliance-reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/compliance-reviews/{{.ID}}/reject"><button class="small danger">拒绝</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
     <section class="grid two">
       <div>
-        <h2>Transactions</h2>
-        <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.status"}}</th><th>Execution</th><th></th></tr></thead><tbody>
-          {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td><td>Docs {{.DocumentStatus}} · ROFR {{.ROFRStatus}} · Approval {{.CompanyApprovalStatus}} · Escrow {{.EscrowStatus}}</td><td class="action-cell">{{if not (terminalTxn .Stage)}}<form method="post" action="/admin/transactions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/transactions/{{.ID}}/cancel"><button class="small danger">Cancel</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
+        <h2>{{t .Lang "label.transactions"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.status"}}</th><th>执行</th><th></th></tr></thead><tbody>
+          {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage $.Lang}}</td><td>文件 {{statusLabel .DocumentStatus $.Lang}} · ROFR {{statusLabel .ROFRStatus $.Lang}} · 审批 {{statusLabel .CompanyApprovalStatus $.Lang}} · 托管 {{statusLabel .EscrowStatus $.Lang}}</td><td class="action-cell">{{if not (terminalTxn .Stage)}}<form method="post" action="/admin/transactions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/transactions/{{.ID}}/cancel"><button class="small danger">取消</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
         </tbody></table>
       </div>
       <div>
-        <h2>Subscriptions</h2>
+        <h2>{{t .Lang "label.subscriptions"}}</h2>
         <table><thead><tr><th>Deal</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
-          {{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td><td class="action-cell">{{if not (terminalSub .Status)}}<form method="post" action="/admin/subscriptions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/subscriptions/{{.ID}}/cancel"><button class="small danger">Cancel</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}
+          {{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status $.Lang}}</td><td class="action-cell">{{if not (terminalSub .Status)}}<form method="post" action="/admin/subscriptions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/subscriptions/{{.ID}}/cancel"><button class="small danger">取消</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}
         </tbody></table>
       </div>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/subscription-documents/create" class="panel stack">
-        <h2>Subscription Documents</h2>
-        <label>Subscription<select name="subscription_id">{{range .Subscriptions}}{{if not (terminalSub .Status)}}<option value="{{.ID}}">#{{.ID}} {{.DealName}} · {{.InvestorName}}</option>{{end}}{{end}}</select></label>
-        <label>Document Type<select name="document_type"><option value="Subscription Agreement">Subscription Agreement</option><option value="Operating Agreement">Operating Agreement</option><option value="Risk Disclosure">Risk Disclosure</option><option value="W-9 / Tax Form">W-9 / Tax Form</option></select></label>
-        <label>Note<input name="note" value="Subscription document package note"></label>
+        <h2>{{t .Lang "label.subscription_documents"}}</h2>
+        <label>{{t .Lang "label.subscription"}}<select name="subscription_id">{{range .Subscriptions}}{{if not (terminalSub .Status)}}<option value="{{.ID}}">#{{.ID}} {{.DealName}} · {{.InvestorName}}</option>{{end}}{{end}}</select></label>
+        <label>文件类型<select name="document_type"><option value="Subscription Agreement">认购协议</option><option value="Operating Agreement">运营协议</option><option value="Risk Disclosure">风险揭示书</option><option value="W-9 / Tax Form">W-9 / 税务表格</option></select></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="认购文件包备注"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Subscription Document Queue</h2><table><thead><tr><th>Sub</th><th>Deal</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th></th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{if and (ne .Status "archived") (ne .Status "void")}}<form method="post" action="/admin/subscription-documents/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>认购文件队列</h2><table><thead><tr><th>{{t .Lang "label.subscription"}}</th><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.document"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.signed"}}</th><th></th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{statusLabel .DocumentType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SignedAt}}</td><td>{{if and (ne .Status "archived") (ne .Status "void")}}<form method="post" action="/admin/subscription-documents/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
-        <h2>Admin Counter Offer</h2>
+        <h2>管理员还价</h2>
         <input type="hidden" name="redirect" value="/admin">
-        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.price"}}<input name="offer_price" type="number" min="0.01" step="0.01" value="42.00" required></label>
         <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="800" required></label>
-        <label>Note<input name="note" value="Admin negotiation note"></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="管理员议价备注"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Negotiation History</h2><table><thead><tr><th>Txn</th><th>Actor</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.shares"}}</th><th>Note</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{money .OfferPrice}}</td><td>{{.Shares}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.negotiation_history"}}</h2><table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.actor"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}} · {{statusLabel .ActorRole $.Lang}}</td><td>{{money .OfferPrice}}</td><td>{{.Shares}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
-      <div><h2>SPV / Fund Vehicles</h2><table><thead><tr><th>Vehicle</th><th>Deal</th><th>Manager</th><th>Units</th><th>Utilization</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Manager}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td><td>{{percent .IssuedUnits .TotalUnits}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.spv_vehicles"}}</h2><table><thead><tr><th>{{t .Lang "label.vehicle"}}</th><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.manager"}}</th><th>{{t .Lang "label.units"}}</th><th>{{t .Lang "label.utilization"}}</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{.Manager}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td><td>{{percent .IssuedUnits .TotalUnits}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
       <div>
-        <h2>Execution Documents</h2>
-        <form method="post" action="/admin/documents/create" class="inline-form wide-inline"><select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}}</option>{{end}}{{end}}</select><select name="document_type"><option value="NDA">NDA</option><option value="SPA">SPA</option><option value="ROFR Notice">ROFR Notice</option><option value="Transfer Instruction">Transfer Instruction</option></select><input name="note" value="Document package note"><button>{{t .Lang "form.submit"}}</button></form>
-        <table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th></th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{if and (ne .Status "archived") (ne .Status "void")}}<form method="post" action="/admin/documents/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+        <h2>{{t .Lang "label.execution_documents"}}</h2>
+        <form method="post" action="/admin/documents/create" class="inline-form wide-inline"><select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}}</option>{{end}}{{end}}</select><select name="document_type"><option value="NDA">保密协议</option><option value="SPA">股份购买协议</option><option value="ROFR Notice">优先购买权通知</option><option value="Transfer Instruction">转让指令</option></select><input name="note" value="文件包备注"><button>{{t .Lang "form.submit"}}</button></form>
+        <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.document"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.signed"}}</th><th></th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{statusLabel .DocumentType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SignedAt}}</td><td>{{if and (ne .Status "archived") (ne .Status "void")}}<form method="post" action="/admin/documents/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
       </div>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/approvals/create" class="panel stack">
-        <h2>ROFR / Company Approval</h2>
-        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}}</option>{{end}}{{end}}</select></label>
-        <label>Approval Type<select name="approval_type"><option value="rofr">ROFR Waiver</option><option value="company_approval">Company Approval</option></select></label>
-        <label>Due Date<input name="due_date" value="2026-07-15"></label>
-        <label>Note<input name="note" value="Approval package prepared"></label>
+        <h2>{{t .Lang "label.approvals"}}</h2>
+        <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}}</option>{{end}}{{end}}</select></label>
+        <label>审批类型<select name="approval_type"><option value="rofr">优先购买权豁免</option><option value="company_approval">公司审批</option></select></label>
+        <label>{{t .Lang "label.due"}}<input name="due_date" value="2026-07-15"></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="审批材料已准备"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Approval Queue</h2><table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Due</th><th></th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{.ApprovalType}}</td><td>{{.Status}}</td><td>{{.DueDate}}</td><td>{{if eq .Status "pending"}}<form method="post" action="/admin/approvals/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>审批队列</h2><table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.due"}}</th><th></th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{statusLabel .ApprovalType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.DueDate}}</td><td>{{if eq .Status "pending"}}<form method="post" action="/admin/approvals/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/escrow-payments/create" class="panel stack">
-        <h2>Escrow Payment</h2>
-        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <h2>{{t .Lang "label.escrow_payments"}}</h2>
+        <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="0.01" step="0.01" value="33600" required></label>
         <label>{{t .Lang "label.status"}}<select name="status"><option value="instruction_sent">instruction_sent</option><option value="funded">funded</option><option value="released">released</option></select></label>
-        <label>Reference<input name="reference" value="ESCROW-REF-001" required></label>
-        <label>Note<input name="note" value="Escrow instruction recorded"></label>
+        <label>{{t .Lang "label.reference"}}<input name="reference" value="ESCROW-REF-001" required></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="托管指令已记录"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Escrow Payments</h2><table><thead><tr><th>Txn</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Reference</th><th></th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.Reference}}</td><td>{{if ne .Status "released"}}<form method="post" action="/admin/escrow-payments/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.escrow_payments"}}</h2><table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.reference"}}</th><th></th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.Reference}}</td><td>{{if ne .Status "released"}}<form method="post" action="/admin/escrow-payments/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
-      <div><h2>Post-Investment Valuations</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
-      <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.valuation_updates"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.exit_events"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .EventType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/valuations/create" class="panel stack">
-        <h2>Add Valuation</h2>
+        <h2>新增估值</h2>
         <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
         <label>{{t .Lang "label.valuation"}}<input name="valuation" value="$5.0B" required></label>
-        <label>Share Price<input name="share_price" type="number" min="0.01" step="0.01" value="45.00" required></label>
-        <label>As Of Date<input name="as_of_date" value="2026-06-30" required></label>
+        <label>{{t .Lang "label.share_price"}}<input name="share_price" type="number" min="0.01" step="0.01" value="45.00" required></label>
+        <label>估值日期<input name="as_of_date" value="2026-06-30" required></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
       <form method="post" action="/admin/exits/create" class="panel stack">
-        <h2>Add Exit Event</h2>
+        <h2>新增退出事件</h2>
         <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-        <label>Event Type<input name="event_type" value="IPO readiness" required></label>
-        <label>{{t .Lang "label.status"}}<select name="status"><option value="watchlist">watchlist</option><option value="monitoring">monitoring</option><option value="confirmed">confirmed</option></select></label>
-        <label>Expected Date<input name="expected_date" value="2027-H1"></label>
-        <label>Description<input name="description" value="Management indicated possible liquidity window."></label>
+        <label>事件类型<input name="event_type" value="IPO 准备" required></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="watchlist">观察中</option><option value="monitoring">监控中</option><option value="confirmed">已确认</option></select></label>
+        <label>预计日期<input name="expected_date" value="2027-H1"></label>
+        <label>描述<input name="description" value="管理层提示可能出现流动性窗口。"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/company-updates/create" class="panel stack">
-        <h2>Publish Company Update</h2>
+        <h2>发布公司动态</h2>
         <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-        <label>Update Type<select name="update_type"><option value="financing">financing</option><option value="revenue">revenue</option><option value="governance">governance</option><option value="liquidity">liquidity</option></select></label>
-        <label>Title<input name="title" value="Quarterly company update" required></label>
-        <label>Summary<input name="body" value="Management shared a material business update for current holders." required></label>
+        <label>动态类型<select name="update_type"><option value="financing">融资</option><option value="revenue">收入</option><option value="governance">治理</option><option value="liquidity">流动性</option></select></label>
+        <label>{{t .Lang "label.title"}}<input name="title" value="季度公司动态" required></label>
+        <label>{{t .Lang "label.summary"}}<input name="body" value="管理层向当前持有人披露重要经营更新。" required></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Company Updates</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Type</th><th>Title</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.CompanyName}}</td><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.company_updates"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.published"}}</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .UpdateType $.Lang}}</td><td>{{.Title}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/distributions/create" class="panel stack">
-        <h2>Create Distribution</h2>
-        <label>User<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
+        <h2>创建分配</h2>
+        <label>用户<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="0" step="0.01" value="0"></label>
-        <label>{{t .Lang "label.status"}}<select name="status"><option value="not_due">not_due</option><option value="pending">pending</option><option value="paid">paid</option></select></label>
-        <label>Tax Document<input name="tax_document" value="K-1 pending"></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="not_due">未到期</option><option value="pending">待处理</option><option value="paid">已支付</option></select></label>
+        <label>{{t .Lang "label.tax_document"}}<input name="tax_document" value="K-1 待出具"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
       <form method="post" action="/admin/reports/create" class="panel stack">
-        <h2>Create Report</h2>
-        <label>User<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
-        <label>Report Type<select name="report_type"><option value="portfolio">portfolio</option><option value="tax">tax</option><option value="capital_account">capital_account</option></select></label>
-        <label>Title<input name="title" value="Q2 2026 Portfolio Statement" required></label>
-        <label>Period<input name="period" value="2026-Q2"></label>
-        <label>{{t .Lang "label.status"}}<select name="status"><option value="available">available</option><option value="pending">pending</option></select></label>
+        <h2>创建报告</h2>
+        <label>用户<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
+        <label>报告类型<select name="report_type"><option value="portfolio">投资组合</option><option value="tax">税务</option><option value="capital_account">资本账户</option></select></label>
+        <label>{{t .Lang "label.title"}}<input name="title" value="2026 年二季度组合报告" required></label>
+        <label>{{t .Lang "label.period"}}<input name="period" value="2026-Q2"></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="available">可查看</option><option value="pending">待处理</option></select></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
     </section>
     <section>
-      <h2>Distribution Queue</h2>
-      <table><thead><tr><th>User</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Tax Document</th><th></th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{.UserName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.TaxDocument}}</td><td>{{if ne .Status "paid"}}<form method="post" action="/admin/distributions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>分配队列</h2>
+      <table><thead><tr><th>用户</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.tax_document"}}</th><th></th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{.UserName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.TaxDocument}}</td><td>{{if ne .Status "paid"}}<form method="post" action="/admin/distributions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
-      <h2>Report Queue</h2>
-      <table><thead><tr><th>User</th><th>Type</th><th>Title</th><th>Period</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.UserName}}</td><td>{{.ReportType}}</td><td>{{.Title}}</td><td>{{.Period}}</td><td>{{.Status}}</td><td>{{if ne .Status "archived"}}<form method="post" action="/admin/reports/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>报告队列</h2>
+      <table><thead><tr><th>用户</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.period"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.UserName}}</td><td>{{statusLabel .ReportType $.Lang}}</td><td>{{.Title}}</td><td>{{.Period}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if ne .Status "archived"}}<form method="post" action="/admin/reports/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section class="grid two">
       <form method="post" action="/admin/capital-calls/create" class="panel stack">
-        <h2>Create Capital Call</h2>
-        <label>User<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
-        <label>Deal<select name="deal_id">{{range .Deals}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+        <h2>创建资本调用</h2>
+        <label>用户<select name="user_id">{{range .Users}}{{if or (eq .Role "investor") (eq .Role "institution")}}<option value="{{.ID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.deal"}}<select name="deal_id">{{range .Deals}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
         <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="1" step="0.01" value="5000"></label>
-        <label>Due Date<input name="due_date" value="2026-07-15"></label>
-        <label>Notice<input name="notice" value="Capital call notice"></label>
+        <label>{{t .Lang "label.due"}}<input name="due_date" value="2026-07-15"></label>
+        <label>{{t .Lang "label.notice"}}<input name="notice" value="资本调用通知"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Capital Calls</h2><table><thead><tr><th>User</th><th>Deal</th><th>{{t .Lang "label.amount"}}</th><th>Due</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .CapitalCalls}}<tr><td>{{.UserName}}</td><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{.DueDate}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.capital_calls"}}</h2><table><thead><tr><th>用户</th><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.due"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .CapitalCalls}}<tr><td>{{.UserName}}</td><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{.DueDate}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section class="grid two">
       <div>
-        <h2>Risk Monitoring</h2>
-        <form method="post" action="/admin/risks/create" class="inline-form wide-inline"><select name="severity"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select><input name="subject" value="New risk alert" required><input name="note" value="Operator note"><button>{{t .Lang "form.submit"}}</button></form>
-        <table><thead><tr><th>Severity</th><th>Subject</th><th>{{t .Lang "label.status"}}</th><th>Owner</th><th>Note</th><th></th></tr></thead><tbody>{{range .RiskAlerts}}<tr><td>{{.Severity}}</td><td>{{.Subject}}</td><td>{{.Status}}</td><td>{{.AssignedToName}}</td><td>{{.Note}}</td><td>{{if ne .Status "resolved"}}<form method="post" action="/admin/risks/{{.ID}}/resolve"><button class="small">Resolve</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
-        <form method="post" action="/admin/risks/actions/create" class="inline-form wide-inline"><select name="alert_id">{{range .RiskAlerts}}{{if ne .Status "resolved"}}<option value="{{.ID}}">#{{.ID}} {{.Subject}}</option>{{end}}{{end}}</select><select name="assigned_to">{{range .Users}}{{if eq .Role "admin"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select><select name="action"><option value="assigned">assigned</option><option value="note">note</option><option value="mitigation">mitigation</option></select><input name="note" value="Risk handling note"><button>{{t .Lang "form.submit"}}</button></form>
+        <h2>风险监控</h2>
+        <form method="post" action="/admin/risks/create" class="inline-form wide-inline"><select name="severity"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select><input name="subject" value="新风险提示" required><input name="note" value="运营备注"><button>{{t .Lang "form.submit"}}</button></form>
+        <table><thead><tr><th>严重程度</th><th>{{t .Lang "label.subject"}}</th><th>{{t .Lang "label.status"}}</th><th>负责人</th><th>{{t .Lang "label.note"}}</th><th></th></tr></thead><tbody>{{range .RiskAlerts}}<tr><td>{{statusLabel .Severity $.Lang}}</td><td>{{.Subject}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.AssignedToName}}</td><td>{{.Note}}</td><td>{{if ne .Status "resolved"}}<form method="post" action="/admin/risks/{{.ID}}/resolve"><button class="small">解决</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+        <form method="post" action="/admin/risks/actions/create" class="inline-form wide-inline"><select name="alert_id">{{range .RiskAlerts}}{{if ne .Status "resolved"}}<option value="{{.ID}}">#{{.ID}} {{.Subject}}</option>{{end}}{{end}}</select><select name="assigned_to">{{range .Users}}{{if eq .Role "admin"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select><select name="action"><option value="assigned">分配</option><option value="note">备注</option><option value="mitigation">风险缓释</option></select><input name="note" value="风险处理备注"><button>{{t .Lang "form.submit"}}</button></form>
       </div>
-      <div><h2>Support Tickets</h2><table><thead><tr><th>User</th><th>Subject</th><th>{{t .Lang "label.status"}}</th><th>Reply</th><th></th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.UserName}}</td><td>{{.Subject}}</td><td>{{.Status}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/support/tickets/reply" class="inline-form"><input type="hidden" name="redirect" value="/admin"><input type="hidden" name="ticket_id" value="{{.ID}}"><input name="message" value="Admin response"><button class="small">{{t $.Lang "form.submit"}}</button></form>{{end}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/admin/tickets/{{.ID}}/close"><button class="small">Close</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.support_ticket"}}</h2><table><thead><tr><th>用户</th><th>{{t .Lang "label.subject"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.reply"}}</th><th></th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.UserName}}</td><td>{{.Subject}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/support/tickets/reply" class="inline-form"><input type="hidden" name="redirect" value="/admin"><input type="hidden" name="ticket_id" value="{{.ID}}"><input name="message" value="管理员回复"><button class="small">{{t $.Lang "form.submit"}}</button></form>{{end}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/admin/tickets/{{.ID}}/close"><button class="small">关闭</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
-      <h2>Risk Actions</h2>
-      <table><thead><tr><th>Alert</th><th>Actor</th><th>Action</th><th>Note</th><th>Time</th></tr></thead><tbody>{{range .RiskActions}}<tr><td>#{{.AlertID}}</td><td>{{.ActorName}}</td><td>{{.Action}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>风险处理记录</h2>
+      <table><thead><tr><th>风险提示</th><th>{{t .Lang "label.actor"}}</th><th>动作</th><th>{{t .Lang "label.note"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .RiskActions}}<tr><td>#{{.AlertID}}</td><td>{{.ActorName}}</td><td>{{statusLabel .Action $.Lang}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
-      <h2>Ticket Messages</h2>
-      <table><thead><tr><th>Ticket</th><th>Actor</th><th>Message</th><th>Time</th></tr></thead><tbody>{{range .TicketMessages}}<tr><td>#{{.TicketID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{.Message}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.ticket_messages"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.ticket"}}</th><th>{{t .Lang "label.actor"}}</th><th>{{t .Lang "label.message"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .TicketMessages}}<tr><td>#{{.TicketID}}</td><td>{{.ActorName}} · {{statusLabel .ActorRole $.Lang}}</td><td>{{.Message}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
       <h2>{{t .Lang "label.audit"}}</h2>
-      <table><thead><tr><th>Actor</th><th>Action</th><th>Object</th><th>Note</th><th>Time</th></tr></thead><tbody>{{range .AuditLogs}}<tr><td>{{.ActorName}}</td><td>{{.Action}}</td><td>{{.ObjectType}} #{{.ObjectID}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <table><thead><tr><th>{{t .Lang "label.actor"}}</th><th>动作</th><th>对象</th><th>{{t .Lang "label.note"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .AuditLogs}}<tr><td>{{.ActorName}}</td><td>{{statusLabel .Action $.Lang}}</td><td>{{statusLabel .ObjectType $.Lang}} #{{.ObjectID}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
   {{template "footer.html" .}}

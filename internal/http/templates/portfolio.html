@@ -6,70 +6,70 @@
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">{{.User.Name}}</p><h1>{{t .Lang "portfolio.title"}}</h1></div></section>
     <section>
-      <div class="section-head"><h2>Notifications</h2><form method="post" action="/notifications/read-all"><button class="small secondary">Mark all read</button></form></div>
-      <table><thead><tr><th>Title</th><th>Message</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .Notifications}}<tr><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.Status}}</td><td>{{if eq .Status "unread"}}<form method="post" action="/notifications/{{.ID}}/read"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <div class="section-head"><h2>{{t .Lang "label.notifications"}}</h2><form method="post" action="/notifications/read-all"><button class="small secondary">{{t .Lang "label.mark_all_read"}}</button></form></div>
+      <table><thead><tr><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.message"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .Notifications}}<tr><td>{{statusLabel .Title $.Lang}}</td><td>{{.Body}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if eq .Status "unread"}}<form method="post" action="/notifications/{{.ID}}/read"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
-      <h2>Portfolio Valuation</h2>
-      <dl class="facts wide"><div><dt>Cost</dt><dd>{{money .PortfolioSummary.Cost}}</dd></div><div><dt>Current Value</dt><dd>{{money .PortfolioSummary.CurrentValue}}</dd></div><div><dt>Unrealized Gain / Loss</dt><dd>{{money .PortfolioSummary.UnrealizedGain}}</dd></div></dl>
-      <table><thead><tr><th>Position</th><th>Source</th><th>Cost</th><th>Current</th><th>Gain / Loss</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .PortfolioValues}}<tr><td>{{.Label}}</td><td>{{.SourceType}}</td><td>{{money .Cost}}</td><td>{{money .CurrentValue}}</td><td>{{money .UnrealizedGain}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.portfolio_valuation"}}</h2>
+      <dl class="facts wide"><div><dt>{{t .Lang "label.cost"}}</dt><dd>{{money .PortfolioSummary.Cost}}</dd></div><div><dt>{{t .Lang "label.current"}}</dt><dd>{{money .PortfolioSummary.CurrentValue}}</dd></div><div><dt>{{t .Lang "label.gain_loss"}}</dt><dd>{{money .PortfolioSummary.UnrealizedGain}}</dd></div></dl>
+      <table><thead><tr><th>{{t .Lang "label.position"}}</th><th>{{t .Lang "label.source"}}</th><th>{{t .Lang "label.cost"}}</th><th>{{t .Lang "label.current"}}</th><th>{{t .Lang "label.gain_loss"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .PortfolioValues}}<tr><td>{{.Label}}</td><td>{{statusLabel .SourceType $.Lang}}</td><td>{{money .Cost}}</td><td>{{money .CurrentValue}}</td><td>{{money .UnrealizedGain}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
-    <section><h2>Holdings</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Source</th><th>Cost</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Holdings}}<tr><td>{{.CompanyName}}</td><td>{{.SourceType}}</td><td>{{money .Cost}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>{{t .Lang "label.holdings"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.source"}}</th><th>{{t .Lang "label.cost"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Holdings}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .SourceType $.Lang}}</td><td>{{money .Cost}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section class="grid two">
-      <div><h2>Transactions</h2><table><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
-      <div><h2>Subscriptions</h2><table><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.transactions"}}</h2><table><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage $.Lang}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.subscriptions"}}</h2><table><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td>{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
-      <h2>Subscription Documents</h2>
-      <table><thead><tr><th>Subscription</th><th>Deal</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th>Note</th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.subscription_documents"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.subscription"}}</th><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.document"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.signed"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{statusLabel .DocumentType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
-        <h2>Transaction Counter Offer</h2>
+        <h2>{{t .Lang "label.negotiation"}}</h2>
         <input type="hidden" name="redirect" value="/portfolio">
-        <label>Transaction<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.price"}}<input name="offer_price" type="number" min="0.01" step="0.01" value="42.00" required></label>
         <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="800" required></label>
-        <label>Note<input name="note" value="Portfolio counter offer"></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="组合还价备注"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>Negotiation History</h2><table><thead><tr><th>Txn</th><th>Actor</th><th>{{t .Lang "label.price"}}</th><th>Note</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}}</td><td>{{money .OfferPrice}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.negotiation_history"}}</h2><table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.actor"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .Negotiations}}<tr><td>#{{.TransactionID}}</td><td>{{.ActorName}}</td><td>{{money .OfferPrice}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
-      <h2>Execution Documents</h2>
-      <table><thead><tr><th>Transaction</th><th>Document</th><th>{{t .Lang "label.status"}}</th><th>Signed</th><th>Note</th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{.DocumentType}}</td><td>{{.Status}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.execution_documents"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.document"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.signed"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .Documents}}<tr><td>#{{.TransactionID}}</td><td>{{statusLabel .DocumentType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
-      <h2>Escrow Payments</h2>
-      <table><thead><tr><th>Transaction</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Reference</th><th>Released</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.Reference}}</td><td>{{.ReleasedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.escrow_payments"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.reference"}}</th><th>{{t .Lang "label.released"}}</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.Reference}}</td><td>{{.ReleasedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section>
-      <h2>ROFR / Company Approvals</h2>
-      <table><thead><tr><th>Transaction</th><th>{{t .Lang "label.company"}}</th><th>Type</th><th>{{t .Lang "label.status"}}</th><th>Due</th><th>Decided</th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{.ApprovalType}}</td><td>{{.Status}}</td><td>{{.DueDate}}</td><td>{{.DecidedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.approvals"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.due"}}</th><th>{{t .Lang "label.decided"}}</th></tr></thead><tbody>{{range .Approvals}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{statusLabel .ApprovalType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.DueDate}}</td><td>{{.DecidedAt}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section class="grid two">
-      <div><h2>Valuation Updates</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Price</th><th>Date</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
-      <div><h2>Exit Events</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Event</th><th>{{t .Lang "label.status"}}</th><th>Date</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{.EventType}}</td><td>{{.Status}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.valuation_updates"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.valuation"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.CompanyName}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td><td>{{.AsOfDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.exit_events"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .ExitEvents}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .EventType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.ExpectedDate}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
-      <h2>Company Updates</h2>
-      <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>Type</th><th>Title</th><th>Summary</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.CompanyName}}</td><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.company_updates"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.summary"}}</th><th>{{t .Lang "label.published"}}</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .UpdateType $.Lang}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section class="grid two">
-      <div><h2>Distributions & Tax</h2><table><thead><tr><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>Tax Document</th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{money .Amount}}</td><td>{{.Status}}</td><td>{{.TaxDocument}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
-      <div><h2>Reports</h2><table><thead><tr><th>Title</th><th>Period</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.Title}}</td><td>{{.Period}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.distributions_tax"}}</h2><table><thead><tr><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.tax_document"}}</th></tr></thead><tbody>{{range .Distributions}}<tr><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.TaxDocument}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div><h2>{{t .Lang "label.reports"}}</h2><table><thead><tr><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.period"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Reports}}<tr><td>{{.Title}}</td><td>{{.Period}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
-      <h2>Capital Calls</h2>
-      <table><thead><tr><th>Deal</th><th>{{t .Lang "label.amount"}}</th><th>Due</th><th>{{t .Lang "label.status"}}</th><th>Notice</th><th></th></tr></thead><tbody>{{range .CapitalCalls}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{.DueDate}}</td><td>{{.Status}}</td><td>{{.Notice}}</td><td>{{if eq .Status "pending"}}<form method="post" action="/capital-calls/{{.ID}}/confirm"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.capital_calls"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.due"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.notice"}}</th><th></th></tr></thead><tbody>{{range .CapitalCalls}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{.DueDate}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.Notice}}</td><td>{{if eq .Status "pending"}}<form method="post" action="/capital-calls/{{.ID}}/confirm"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
     <section class="grid two">
-      <form method="post" action="/support/tickets" class="panel stack"><h2>Support Ticket</h2><label>Subject<input name="subject" required></label><label>Note<input name="note"></label><button>{{t .Lang "form.submit"}}</button></form>
-      <div><h2>My Tickets</h2><table><thead><tr><th>Subject</th><th>{{t .Lang "label.status"}}</th><th>Reply</th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.Subject}}</td><td>{{.Status}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/support/tickets/reply" class="inline-form"><input type="hidden" name="ticket_id" value="{{.ID}}"><input name="message" value="Follow-up question"><button class="small">{{t $.Lang "form.submit"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <form method="post" action="/support/tickets" class="panel stack"><h2>{{t .Lang "label.support_ticket"}}</h2><label>{{t .Lang "label.subject"}}<input name="subject" required></label><label>{{t .Lang "label.note"}}<input name="note"></label><button>{{t .Lang "form.submit"}}</button></form>
+      <div><h2>{{t .Lang "label.my_tickets"}}</h2><table><thead><tr><th>{{t .Lang "label.subject"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.reply"}}</th></tr></thead><tbody>{{range .Tickets}}<tr><td>{{.Subject}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if ne .Status "closed"}}<form method="post" action="/support/tickets/reply" class="inline-form"><input type="hidden" name="ticket_id" value="{{.ID}}"><input name="message" value="补充问题"><button class="small">{{t $.Lang "form.submit"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section>
-      <h2>Ticket Messages</h2>
-      <table><thead><tr><th>Ticket</th><th>Actor</th><th>Message</th><th>Time</th></tr></thead><tbody>{{range .TicketMessages}}<tr><td>#{{.TicketID}}</td><td>{{.ActorName}} · {{.ActorRole}}</td><td>{{.Message}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.ticket_messages"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.ticket"}}</th><th>{{t .Lang "label.actor"}}</th><th>{{t .Lang "label.message"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .TicketMessages}}<tr><td>#{{.TicketID}}</td><td>{{.ActorName}} · {{statusLabel .ActorRole $.Lang}}</td><td>{{.Message}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
   {{template "footer.html" .}}

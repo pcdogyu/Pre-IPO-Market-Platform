@@ -105,7 +105,7 @@ func TestUsersCanCancelOpenOrders(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), "cancelled") {
+	if !strings.Contains(rec.Body.String(), "已取消") {
 		t.Fatal("market should render cancelled order status")
 	}
 }
@@ -153,7 +153,7 @@ func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Compliance Reviews") {
+	if !strings.Contains(body, "Compliance Request") {
 		t.Fatal("dashboard should render compliance reviews")
 	}
 	if !strings.Contains(body, "approved") {
@@ -252,7 +252,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Deal Pipeline") {
+	if !strings.Contains(body, "项目流水线") {
 		t.Fatal("admin should render deal pipeline")
 	}
 	if !strings.Contains(body, "Capacity review") {
@@ -281,7 +281,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "User Risk Ratings") {
+	if !strings.Contains(body, "用户风险评级") {
 		t.Fatal("admin should render user risk ratings section")
 	}
 	if !strings.Contains(body, "Annual suitability review") {
@@ -334,10 +334,10 @@ func TestPortfolioRendersValuationSummary(t *testing.T) {
 		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Portfolio Valuation") {
+	if !strings.Contains(body, "组合估值") {
 		t.Fatal("portfolio should render valuation summary")
 	}
-	if !strings.Contains(body, "Unrealized Gain / Loss") {
+	if !strings.Contains(body, "未实现收益/亏损") {
 		t.Fatal("portfolio should render unrealized gain label")
 	}
 }
@@ -407,10 +407,10 @@ func TestAdminCanAdvanceDistribution(t *testing.T) {
 		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Distribution Queue") {
+	if !strings.Contains(body, "分配队列") {
 		t.Fatal("admin should render distribution queue")
 	}
-	if !strings.Contains(body, "paid") {
+	if !strings.Contains(body, "已支付") {
 		t.Fatal("admin should render paid distribution status")
 	}
 }
@@ -444,10 +444,10 @@ func TestAdminCanAdvanceReport(t *testing.T) {
 		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Report Queue") {
+	if !strings.Contains(body, "报告队列") {
 		t.Fatal("admin should render report queue")
 	}
-	if !strings.Contains(body, "Q3 Tax Draft") || !strings.Contains(body, "available") {
+	if !strings.Contains(body, "Q3 Tax Draft") || !strings.Contains(body, "可查看") {
 		t.Fatal("admin should render advanced report")
 	}
 }
@@ -473,7 +473,7 @@ func TestAdminCanAddRiskAction(t *testing.T) {
 		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Risk Actions") {
+	if !strings.Contains(body, "风险处理记录") {
 		t.Fatal("admin should render risk actions section")
 	}
 	if !strings.Contains(body, "Assign owner") {
@@ -516,7 +516,7 @@ func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 	if !strings.Contains(body, "Admin response") {
 		t.Fatal("portfolio should render admin ticket reply")
 	}
-	if !strings.Contains(body, "Support ticket reply") {
+	if !strings.Contains(body, "客服工单回复") {
 		t.Fatal("portfolio should render support ticket reply notification")
 	}
 }
@@ -606,10 +606,10 @@ func TestAdminCanManageExecutionApprovals(t *testing.T) {
 		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "ROFR / Company Approvals") {
+	if !strings.Contains(body, "优先购买权/公司审批") {
 		t.Fatal("portfolio should render execution approvals")
 	}
-	if !strings.Contains(body, "Execution approval updated") {
+	if !strings.Contains(body, "执行审批已更新") {
 		t.Fatal("portfolio should render execution approval notification text")
 	}
 }
@@ -691,7 +691,7 @@ func TestAdminCanManageEscrowPayments(t *testing.T) {
 	if !strings.Contains(body, "ESCROW-HTTP-001") {
 		t.Fatal("portfolio should render escrow payment reference")
 	}
-	if !strings.Contains(body, "Escrow payment updated") {
+	if !strings.Contains(body, "托管付款已更新") {
 		t.Fatal("portfolio should render escrow payment notification")
 	}
 }
@@ -715,7 +715,7 @@ func TestUserCanMarkNotificationRead(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), "Notifications") {
+	if !strings.Contains(rec.Body.String(), "通知") {
 		t.Fatal("dashboard should render notifications")
 	}
 
@@ -781,7 +781,7 @@ func TestAdminCanPublishCompanyUpdate(t *testing.T) {
 	if !strings.Contains(body, "NeuralBridge holder update") {
 		t.Fatal("portfolio should render published company update")
 	}
-	if !strings.Contains(body, "Company update published") {
+	if !strings.Contains(body, "公司更新已发布") {
 		t.Fatal("portfolio should render company update notification")
 	}
 }

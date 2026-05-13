@@ -156,7 +156,7 @@ func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 	if !strings.Contains(body, "合规复核申请") {
 		t.Fatal("dashboard should render compliance reviews")
 	}
-	if !strings.Contains(body, "approved") {
+	if !strings.Contains(body, "已通过") {
 		t.Fatal("dashboard should show approved compliance review")
 	}
 }
@@ -172,6 +172,24 @@ func TestInvestorCanSubscribeToDeal(t *testing.T) {
 	app.ServeHTTP(rec, req)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("subscribe status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
+func TestDealsPageRendersPopularUSSPVProjects(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/deals", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("deals status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"SPV 项目介绍", "SpaceX 星链与航天专项 SPV", "OpenAI 基础模型专项 SPV", "美国市场高关注未上市公司"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("deals page should render %q", want)
+		}
 	}
 }
 
@@ -234,7 +252,7 @@ func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 func TestAdminCanUpdateDealStatus(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin")
-	form := url.Values{"deal_id": {"1"}, "status": {"closed"}, "note": {"Capacity review"}}
+	form := url.Values{"deal_id": {"1"}, "status": {"closed"}, "note": {"项目容量复核"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/deals/status", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
@@ -255,7 +273,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 	if !strings.Contains(body, "项目流水线") {
 		t.Fatal("admin should render deal pipeline")
 	}
-	if !strings.Contains(body, "Capacity review") {
+	if !strings.Contains(body, "项目容量复核") {
 		t.Fatal("admin audit log should render deal status note")
 	}
 }
@@ -263,7 +281,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin")
-	form := url.Values{"user_id": {"2"}, "risk_rating": {"high"}, "note": {"Annual suitability review"}}
+	form := url.Values{"user_id": {"2"}, "risk_rating": {"high"}, "note": {"年度适当性复核"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/users/risk-rating", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
@@ -284,7 +302,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	if !strings.Contains(body, "用户风险评级") {
 		t.Fatal("admin should render user risk ratings section")
 	}
-	if !strings.Contains(body, "Annual suitability review") {
+	if !strings.Contains(body, "年度适当性复核") {
 		t.Fatal("admin audit log should render risk rating review note")
 	}
 }
@@ -320,6 +338,45 @@ func TestUserCanManageWatchlist(t *testing.T) {
 	app.ServeHTTP(rec, req)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("remove watchlist status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
+func TestCompanyPageRendersMarketValueAndSharePriceCharts(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/companies/94", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("company status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"总市值历史", "每股价格历史", "chart-y-label", "chart-x-label"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("company page should render %q", want)
+		}
+	}
+	if tickCount := strings.Count(body, `class="chart-x-label"`); tickCount < 12 {
+		t.Fatalf("chart x-axis labels got %d, want at least 12", tickCount)
+	}
+}
+
+func TestCompanyPageRendersFinancialReports(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/companies/1", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("company status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"公司财报历史", "年报", "季报", "净利润", "现金"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("company page should render %q", want)
+		}
 	}
 }
 
@@ -418,7 +475,7 @@ func TestAdminCanAdvanceDistribution(t *testing.T) {
 func TestAdminCanAdvanceReport(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin")
-	form := url.Values{"user_id": {"2"}, "report_type": {"tax"}, "title": {"Q3 Tax Draft"}, "period": {"2026-Q3"}, "status": {"pending"}}
+	form := url.Values{"user_id": {"2"}, "report_type": {"tax"}, "title": {"2026年三季度税务草稿"}, "period": {"2026-Q3"}, "status": {"pending"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/reports/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
@@ -447,7 +504,7 @@ func TestAdminCanAdvanceReport(t *testing.T) {
 	if !strings.Contains(body, "报告队列") {
 		t.Fatal("admin should render report queue")
 	}
-	if !strings.Contains(body, "Q3 Tax Draft") || !strings.Contains(body, "可查看") {
+	if !strings.Contains(body, "2026年三季度税务草稿") || !strings.Contains(body, "可查看") {
 		t.Fatal("admin should render advanced report")
 	}
 }
@@ -455,7 +512,7 @@ func TestAdminCanAdvanceReport(t *testing.T) {
 func TestAdminCanAddRiskAction(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin")
-	form := url.Values{"alert_id": {"1"}, "assigned_to": {"1"}, "action": {"assigned"}, "note": {"Assign owner"}}
+	form := url.Values{"alert_id": {"1"}, "assigned_to": {"1"}, "action": {"assigned"}, "note": {"分配负责人"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/risks/actions/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
@@ -476,7 +533,7 @@ func TestAdminCanAddRiskAction(t *testing.T) {
 	if !strings.Contains(body, "风险处理记录") {
 		t.Fatal("admin should render risk actions section")
 	}
-	if !strings.Contains(body, "Assign owner") {
+	if !strings.Contains(body, "分配负责人") {
 		t.Fatal("admin should render submitted risk action note")
 	}
 }
@@ -495,7 +552,7 @@ func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 	}
 
 	adminCookie := loginCookie(t, app, "admin")
-	form = url.Values{"ticket_id": {"1"}, "message": {"Admin response"}, "redirect": {"/admin"}}
+	form = url.Values{"ticket_id": {"1"}, "message": {"管理员回复内容"}, "redirect": {"/admin"}}
 	req = httptest.NewRequest(http.MethodPost, "/support/tickets/reply", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(adminCookie)
@@ -513,7 +570,7 @@ func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Admin response") {
+	if !strings.Contains(body, "管理员回复内容") {
 		t.Fatal("portfolio should render admin ticket reply")
 	}
 	if !strings.Contains(body, "客服工单回复") {

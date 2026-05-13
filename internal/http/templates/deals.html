@@ -6,11 +6,16 @@
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">项目载体</p><h1>{{t .Lang "deals.title"}}</h1></div></section>
     {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+    <section class="panel">
+      <h2>{{t .Lang "label.spv_project_intro"}}</h2>
+      <p class="lead">{{t .Lang "text.spv_project_intro"}}</p>
+    </section>
     <section class="cards">
       {{range .Deals}}
       <article class="card">
         <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{statusLabel .DealType $.Lang}} · {{statusLabel .Status $.Lang}}</span></div>
         <p>{{.CompanyName}}</p>
+        <p><strong>{{t $.Lang "label.spv_project_intro"}}</strong></p>
         <p class="muted">{{.Structure}}</p>
         <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.subscribed"}}</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.remaining"}}</dt><dd>{{money .RemainingAmount}}</dd></div></dl>
         <p class="muted">{{t $.Lang "label.fees"}}: {{.FeeDescription}}</p>

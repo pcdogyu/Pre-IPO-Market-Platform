@@ -59,6 +59,7 @@ type pageData struct {
 	Distributions     []domain.Distribution
 	CapitalCalls      []domain.CapitalCall
 	CompanyUpdates    []domain.CompanyUpdate
+	FinancialReports  []domain.CompanyFinancialReport
 	Reports           []domain.InvestorReport
 	Notifications     []domain.Notification
 	RiskAlerts        []domain.RiskAlert
@@ -77,6 +78,9 @@ func NewServer(store *store.Store) *Server {
 		"money": func(v float64) string {
 			return fmt.Sprintf("$%.0f", v)
 		},
+		"moneyM": func(v float64) string {
+			return fmt.Sprintf("$%.1fM", v)
+		},
 		"canAdmin":    domain.CanAccessAdmin,
 		"canBuy":      domain.CanSubmitBuyInterest,
 		"canSell":     domain.CanSubmitSellOrder,
@@ -84,6 +88,9 @@ func NewServer(store *store.Store) *Server {
 		"statusLabel": statusLabel,
 		"percent":     percent,
 		"chartPoints": valuationChartPoints,
+		"chartDots":   valuationChartDots,
+		"chartXTicks": valuationChartXTicks,
+		"chartYTicks": valuationChartYTicks,
 		"terminalTxn": func(s domain.TransactionStage) bool { return s == domain.StageSettled || s == domain.StageCancelled },
 		"terminalSub": func(s domain.SubscriptionStatus) bool {
 			return s == domain.SubscriptionActive || s == domain.SubscriptionCancelled
@@ -370,9 +377,10 @@ func (s *Server) companyDetail(w http.ResponseWriter, r *http.Request, user doma
 		return
 	}
 	updates, _ := s.store.CompanyUpdates(company.ID, 10)
+	financialReports, _ := s.store.CompanyFinancialReports(company.ID, 9)
 	valuations, _ := s.store.CompanyValuations(company.ID)
 	watched, _ := s.store.WatchlistMap(user.ID)
-	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, Valuations: valuations, WatchlistMap: watched})
+	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, FinancialReports: financialReports, Valuations: valuations, WatchlistMap: watched})
 }
 
 func (s *Server) addWatchlist(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -1381,6 +1389,8 @@ func statusLabel(status any, lang ...string) string {
 		"portfolio":                     "投资组合",
 		"tax":                           "税务",
 		"capital_account":               "资本账户",
+		"annual":                        "年报",
+		"quarterly":                     "季报",
 		"assigned":                      "已分配",
 		"note":                          "备注",
 		"mitigation":                    "风险缓释",
@@ -1515,6 +1525,14 @@ func statusLabel(status any, lang ...string) string {
 		"Risk alert assigned":           "风险提示已分配",
 		"Support ticket reply":          "客服工单回复",
 		"Support ticket closed":         "客服工单已关闭",
+		"公司已加入关注列表":                     "公司已加入关注列表",
+		"公司已移出关注列表":                     "公司已移出关注列表",
+		"KYC、AML 与合格投资人状态已通过":              "KYC、AML 与合格投资人状态已通过",
+		"KYC、AML 与合格投资人状态已拒绝":              "KYC、AML 与合格投资人状态已拒绝",
+		"状态已更新为已解决":                        "状态已更新为已解决",
+		"状态已更新为已关闭":                        "状态已更新为已关闭",
+		"status -> read":                   "状态已更新为已读",
+		"all unread notifications -> read": "全部未读通知已更新为已读",
 	}
 	if label, ok := labels[text]; ok {
 		return label
@@ -1531,35 +1549,159 @@ func percent(value, total any) string {
 	return fmt.Sprintf("%.0f%%", valueFloat/totalFloat*100)
 }
 
-func valuationChartPoints(records []domain.ValuationRecord) string {
-	if len(records) == 0 {
-		return ""
-	}
-	minPrice := records[0].SharePrice
-	maxPrice := records[0].SharePrice
-	for _, record := range records {
-		if record.SharePrice < minPrice {
-			minPrice = record.SharePrice
-		}
-		if record.SharePrice > maxPrice {
-			maxPrice = record.SharePrice
-		}
-	}
-	if maxPrice == minPrice {
-		maxPrice = minPrice + 1
-	}
-	width := 720.0
-	height := 220.0
-	var points []string
-	for index, record := range records {
-		x := 0.0
-		if len(records) > 1 {
-			x = float64(index) * width / float64(len(records)-1)
-		}
-		y := height - ((record.SharePrice-minPrice)/(maxPrice-minPrice))*height
-		points = append(points, fmt.Sprintf("%.1f,%.1f", x, y))
+type chartPoint struct {
+	X string
+	Y string
+}
+
+type chartTick struct {
+	X     string
+	Y     string
+	Label string
+}
+
+const (
+	chartPlotLeft   = 76.0
+	chartPlotTop    = 24.0
+	chartPlotWidth  = 610.0
+	chartPlotHeight = 200.0
+	chartPlotBottom = chartPlotTop + chartPlotHeight
+)
+
+func valuationChartPoints(records []domain.ValuationRecord, metric string) string {
+	dots := valuationChartDots(records, metric)
+	points := make([]string, 0, len(dots))
+	for _, dot := range dots {
+		points = append(points, dot.X+","+dot.Y)
 	}
 	return strings.Join(points, " ")
+}
+
+func valuationChartDots(records []domain.ValuationRecord, metric string) []chartPoint {
+	if len(records) == 0 {
+		return nil
+	}
+	minValue, maxValue := valuationChartBounds(records, metric)
+	points := make([]chartPoint, 0, len(records))
+	for index, record := range records {
+		x := chartPlotLeft
+		if len(records) > 1 {
+			x = chartPlotLeft + float64(index)*chartPlotWidth/float64(len(records)-1)
+		}
+		value := valuationChartValue(record, metric)
+		y := chartPlotTop + ((maxValue-value)/(maxValue-minValue))*chartPlotHeight
+		points = append(points, chartPoint{X: chartCoord(x), Y: chartCoord(y)})
+	}
+	return points
+}
+
+func valuationChartXTicks(records []domain.ValuationRecord) []chartTick {
+	if len(records) == 0 {
+		return nil
+	}
+	const tickCount = 6
+	ticks := make([]chartTick, 0, tickCount)
+	for index := 0; index < tickCount; index++ {
+		x := chartPlotLeft + float64(index)*chartPlotWidth/float64(tickCount-1)
+		recordIndex := 0
+		if len(records) > 1 {
+			recordIndex = (index*(len(records)-1) + (tickCount-1)/2) / (tickCount - 1)
+		}
+		ticks = append(ticks, chartTick{
+			X:     chartCoord(x),
+			Y:     chartCoord(chartPlotBottom),
+			Label: records[recordIndex].AsOfDate,
+		})
+	}
+	return ticks
+}
+
+func valuationChartYTicks(records []domain.ValuationRecord, metric string) []chartTick {
+	if len(records) == 0 {
+		return nil
+	}
+	const tickCount = 5
+	minValue, maxValue := valuationChartBounds(records, metric)
+	ticks := make([]chartTick, 0, tickCount)
+	for index := 0; index < tickCount; index++ {
+		y := chartPlotTop + float64(index)*chartPlotHeight/float64(tickCount-1)
+		value := maxValue - float64(index)*(maxValue-minValue)/float64(tickCount-1)
+		ticks = append(ticks, chartTick{
+			X:     chartCoord(chartPlotLeft),
+			Y:     chartCoord(y),
+			Label: valuationChartLabel(value, metric),
+		})
+	}
+	return ticks
+}
+
+func valuationChartBounds(records []domain.ValuationRecord, metric string) (float64, float64) {
+	minValue := valuationChartValue(records[0], metric)
+	maxValue := minValue
+	for _, record := range records[1:] {
+		value := valuationChartValue(record, metric)
+		if value < minValue {
+			minValue = value
+		}
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+	if maxValue == minValue {
+		if maxValue == 0 {
+			maxValue = 1
+		} else {
+			minValue = minValue * 0.95
+			maxValue = maxValue * 1.05
+		}
+	}
+	return minValue, maxValue
+}
+
+func valuationChartValue(record domain.ValuationRecord, metric string) float64 {
+	if metric == "valuation" {
+		return parseValuationBillions(record.Valuation)
+	}
+	return record.SharePrice
+}
+
+func valuationChartLabel(value float64, metric string) string {
+	if metric == "valuation" {
+		if value < 1 {
+			return fmt.Sprintf("$%.0fM", value*1000)
+		}
+		return fmt.Sprintf("$%.1fB", value)
+	}
+	return fmt.Sprintf("$%.0f", value)
+}
+
+func parseValuationBillions(value string) float64 {
+	cleaned := strings.TrimSpace(strings.ReplaceAll(value, ",", ""))
+	cleaned = strings.TrimPrefix(cleaned, "$")
+	if cleaned == "" {
+		return 0
+	}
+	multiplier := 1.0
+	suffix := strings.ToUpper(cleaned[len(cleaned)-1:])
+	switch suffix {
+	case "B":
+		cleaned = cleaned[:len(cleaned)-1]
+	case "M":
+		cleaned = cleaned[:len(cleaned)-1]
+		multiplier = 0.001
+	case "K":
+		cleaned = cleaned[:len(cleaned)-1]
+		multiplier = 0.000001
+	}
+	parsed, err := strconv.ParseFloat(cleaned, 64)
+	if err != nil {
+		return 0
+	}
+	return parsed * multiplier
+}
+
+func chartCoord(value float64) string {
+	return fmt.Sprintf("%.1f", value)
 }
 
 func toFloat(value any) float64 {

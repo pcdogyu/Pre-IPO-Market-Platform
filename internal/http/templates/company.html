@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Company.Name}}</title><link rel="stylesheet" href="/static/app.css"></head>
 <body>
   <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
-  <main class="container narrow">
+  <main class="container">
     <section class="page-head"><div><p class="eyebrow">{{.Company.Industry}}</p><h1>{{.Company.Name}}</h1></div><span class="badge">{{statusLabel .Company.TradableStatus .Lang}}</span></section>
     <p class="lead">{{.Company.Description}}</p>
     <dl class="facts wide"><div><dt>{{t .Lang "label.valuation"}}</dt><dd>{{.Company.Valuation}}</dd></div><div><dt>{{t .Lang "label.share_price"}}</dt><dd>{{money .Company.SharePrice}}</dd></div><div><dt>{{t .Lang "label.round"}}</dt><dd>{{.Company.FundingRound}}</dd></div><div><dt>{{t .Lang "label.status"}}</dt><dd>{{statusLabel .Company.TradableStatus .Lang}}</dd></div><div><dt>{{t .Lang "label.transfer_restrictions"}}</dt><dd>{{.Company.TransferRestrictions}}</dd></div></dl>
@@ -11,18 +11,44 @@
     <section>
       <h2>{{t .Lang "label.valuation_history"}}</h2>
       <div class="chart-panel">
-        <svg viewBox="0 0 720 260" role="img" aria-label="{{t .Lang "label.valuation_history"}}">
-          <line x1="0" y1="220" x2="720" y2="220" class="chart-axis"></line>
-          <line x1="0" y1="0" x2="0" y2="220" class="chart-axis"></line>
-          <polyline points="{{chartPoints .Valuations}}" class="chart-line"></polyline>
-          {{range .Valuations}}<circle class="chart-dot" cx="0" cy="0" r="0"></circle>{{end}}
-        </svg>
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h3>{{t .Lang "label.market_value_history"}}</h3>
+            <svg viewBox="0 0 720 290" role="img" aria-label="{{t .Lang "label.market_value_history"}}">
+              {{range chartYTicks .Valuations "valuation"}}<line x1="76" y1="{{.Y}}" x2="686" y2="{{.Y}}" class="chart-gridline"></line><text x="64" y="{{.Y}}" class="chart-y-label">{{.Label}}</text>{{end}}
+              <line x1="76" y1="224" x2="686" y2="224" class="chart-axis"></line>
+              <line x1="76" y1="24" x2="76" y2="224" class="chart-axis"></line>
+              {{range chartXTicks .Valuations}}<line x1="{{.X}}" y1="224" x2="{{.X}}" y2="230" class="chart-axis"></line><text x="{{.X}}" y="252" class="chart-x-label">{{.Label}}</text>{{end}}
+              <text x="18" y="124" transform="rotate(-90 18 124)" class="chart-axis-title">{{t .Lang "label.market_value"}}</text>
+              <polyline points="{{chartPoints .Valuations "valuation"}}" class="chart-line"></polyline>
+              {{range chartDots .Valuations "valuation"}}<circle class="chart-dot" cx="{{.X}}" cy="{{.Y}}" r="4"></circle>{{end}}
+            </svg>
+          </article>
+          <article class="chart-card">
+            <h3>{{t .Lang "label.share_price_history"}}</h3>
+            <svg viewBox="0 0 720 290" role="img" aria-label="{{t .Lang "label.share_price_history"}}">
+              {{range chartYTicks .Valuations "share_price"}}<line x1="76" y1="{{.Y}}" x2="686" y2="{{.Y}}" class="chart-gridline"></line><text x="64" y="{{.Y}}" class="chart-y-label">{{.Label}}</text>{{end}}
+              <line x1="76" y1="224" x2="686" y2="224" class="chart-axis"></line>
+              <line x1="76" y1="24" x2="76" y2="224" class="chart-axis"></line>
+              {{range chartXTicks .Valuations}}<line x1="{{.X}}" y1="224" x2="{{.X}}" y2="230" class="chart-axis"></line><text x="{{.X}}" y="252" class="chart-x-label">{{.Label}}</text>{{end}}
+              <text x="18" y="124" transform="rotate(-90 18 124)" class="chart-axis-title">{{t .Lang "label.share_price"}}</text>
+              <polyline points="{{chartPoints .Valuations "share_price"}}" class="chart-line secondary"></polyline>
+              {{range chartDots .Valuations "share_price"}}<circle class="chart-dot secondary" cx="{{.X}}" cy="{{.Y}}" r="4"></circle>{{end}}
+            </svg>
+          </article>
+        </div>
         <table><thead><tr><th>{{t .Lang "label.date"}}</th><th>{{t .Lang "label.valuation"}}</th><th>{{t .Lang "label.share_price"}}</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.AsOfDate}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
       </div>
     </section>
-    <section>
-      <h2>{{t .Lang "label.company_updates"}}</h2>
-      <table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.summary"}}</th><th>{{t .Lang "label.published"}}</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{statusLabel .UpdateType $.Lang}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+    <section class="detail-grid">
+      <div>
+        <h2>{{t .Lang "label.company_updates"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.summary"}}</th><th>{{t .Lang "label.published"}}</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{statusLabel .UpdateType $.Lang}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+      <div>
+        <h2>{{t .Lang "label.financial_reports"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.period"}}</th><th>{{t .Lang "label.revenue"}}</th><th>{{t .Lang "label.net_income"}}</th><th>{{t .Lang "label.cash_balance"}}</th></tr></thead><tbody>{{range .FinancialReports}}<tr><td>{{statusLabel .ReportType $.Lang}}</td><td>{{.Period}}</td><td>{{moneyM .Revenue}}</td><td>{{moneyM .NetIncome}}</td><td>{{moneyM .CashBalance}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
     </section>
   </main>
   {{template "footer.html" .}}

@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"pre-ipo-market-platform/internal/domain"
@@ -94,6 +96,135 @@ func TestAdvanceTransactionCreatesSettledHolding(t *testing.T) {
 	}
 	if !settled {
 		t.Fatal("expected settled holding after transaction completion")
+	}
+}
+
+func TestSeedDemoDataUsesRandomStyleCompanyNames(t *testing.T) {
+	s := testStore(t)
+	companies, err := s.Companies()
+	if err != nil {
+		t.Fatalf("companies: %v", err)
+	}
+	if len(companies) < 120 {
+		t.Fatalf("expected at least 120 demo companies, got %d", len(companies))
+	}
+	seen := map[string]bool{}
+	for _, company := range companies {
+		if strings.HasPrefix(company.Name, "PreIPO Growth ") || strings.HasPrefix(company.Name, "未上市成长 ") {
+			t.Fatalf("numbered demo company name should be replaced: %q", company.Name)
+		}
+		if seen[company.Name] {
+			t.Fatalf("duplicate demo company name: %q", company.Name)
+		}
+		seen[company.Name] = true
+	}
+}
+
+func TestSeedDemoDataRenamesLegacyPreIPOGrowthCompanies(t *testing.T) {
+	s := testStore(t)
+	for id := 1; id <= 5; id++ {
+		if _, err := s.db.Exec(`UPDATE companies SET name = ? WHERE id = ?`, demoCompanyName(id), id); err != nil {
+			t.Fatalf("reset demo name: %v", err)
+		}
+		if _, err := s.db.Exec(`UPDATE companies SET name = ? WHERE id = ?`, fmt.Sprintf("PreIPO Growth %03d", id), id); err != nil {
+			t.Fatalf("set legacy name: %v", err)
+		}
+	}
+	if err := s.SeedDemoData(); err != nil {
+		t.Fatalf("reseed: %v", err)
+	}
+	companies, err := s.Companies()
+	if err != nil {
+		t.Fatalf("companies: %v", err)
+	}
+	for _, company := range companies {
+		if strings.HasPrefix(company.Name, "PreIPO Growth ") {
+			t.Fatalf("legacy PreIPO Growth name was not renamed: %q", company.Name)
+		}
+	}
+}
+
+func TestSeedDemoDataAddsCompanyFinancialReports(t *testing.T) {
+	s := testStore(t)
+	companies, err := s.Companies()
+	if err != nil {
+		t.Fatalf("companies: %v", err)
+	}
+	for _, company := range companies {
+		reports, err := s.CompanyFinancialReports(company.ID, 20)
+		if err != nil {
+			t.Fatalf("company financial reports: %v", err)
+		}
+		if len(reports) != 9 {
+			t.Fatalf("company %d reports got %d, want 9", company.ID, len(reports))
+		}
+		annualCount := 0
+		quarterlyCount := 0
+		for _, report := range reports {
+			switch report.ReportType {
+			case "annual":
+				annualCount++
+			case "quarterly":
+				quarterlyCount++
+			}
+		}
+		if annualCount != 5 || quarterlyCount != 4 {
+			t.Fatalf("company %d annual/quarterly got %d/%d, want 5/4", company.ID, annualCount, quarterlyCount)
+		}
+	}
+	if err := s.SeedDemoData(); err != nil {
+		t.Fatalf("reseed: %v", err)
+	}
+	reports, err := s.CompanyFinancialReports(1, 20)
+	if err != nil {
+		t.Fatalf("company financial reports after reseed: %v", err)
+	}
+	if len(reports) != 9 {
+		t.Fatalf("company 1 reports after reseed got %d, want 9", len(reports))
+	}
+}
+
+func TestSeedDemoDataAddsPopularUSSPVProjects(t *testing.T) {
+	s := testStore(t)
+	deals, err := s.Deals()
+	if err != nil {
+		t.Fatalf("deals: %v", err)
+	}
+	popularCount := 0
+	hasSpaceX := false
+	hasOpenAI := false
+	for _, deal := range deals {
+		if strings.Contains(deal.Name, "SPV") && deal.DealType == "spv" {
+			popularCount++
+		}
+		if deal.Name == "SpaceX 星链与航天专项 SPV" {
+			hasSpaceX = true
+		}
+		if deal.Name == "OpenAI 基础模型专项 SPV" {
+			hasOpenAI = true
+		}
+	}
+	if popularCount < 20 {
+		t.Fatalf("popular SPV projects got %d, want at least 20", popularCount)
+	}
+	if !hasSpaceX || !hasOpenAI {
+		t.Fatal("popular SPV projects should include SpaceX and OpenAI")
+	}
+	if err := s.SeedDemoData(); err != nil {
+		t.Fatalf("reseed: %v", err)
+	}
+	reseeded, err := s.Deals()
+	if err != nil {
+		t.Fatalf("deals after reseed: %v", err)
+	}
+	matches := 0
+	for _, deal := range reseeded {
+		if deal.Name == "SpaceX 星链与航天专项 SPV" {
+			matches++
+		}
+	}
+	if matches != 1 {
+		t.Fatalf("SpaceX SPV duplicate count got %d, want 1", matches)
 	}
 }
 
@@ -273,7 +404,7 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	if err := s.CreateSupportTicketMessage(context.Background(), investor, ticketID, "Investor follow-up"); err != nil {
 		t.Fatalf("create user ticket message: %v", err)
 	}
-	if err := s.CreateSupportTicketMessage(context.Background(), admin, ticketID, "Admin response"); err != nil {
+	if err := s.CreateSupportTicketMessage(context.Background(), admin, ticketID, "管理员回复内容"); err != nil {
 		t.Fatalf("create admin ticket message: %v", err)
 	}
 	messages, err := s.SupportTicketMessages(investor, false)
@@ -282,7 +413,7 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	}
 	var foundAdminReply bool
 	for _, message := range messages {
-		if message.TicketID == ticketID && message.Message == "Admin response" {
+		if message.TicketID == ticketID && message.Message == "管理员回复内容" {
 			foundAdminReply = true
 		}
 	}
@@ -443,7 +574,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "paused", "bad status"); err == nil {
 		t.Fatal("invalid deal status should fail")
 	}
-	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "closed", "Capacity review"); err != nil {
+	if err := s.UpdateDealStatus(context.Background(), admin.ID, 1, "closed", "项目容量复核"); err != nil {
 		t.Fatalf("close deal: %v", err)
 	}
 	closed, err := s.Deal(1)
@@ -753,7 +884,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "bad", "invalid"); err == nil {
 		t.Fatal("invalid risk rating should fail")
 	}
-	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "high", "Annual suitability review"); err != nil {
+	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "high", "年度适当性复核"); err != nil {
 		t.Fatalf("update risk rating: %v", err)
 	}
 	updated, err := s.Authenticate("investor", "demo123")

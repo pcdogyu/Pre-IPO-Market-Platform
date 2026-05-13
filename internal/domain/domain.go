@@ -108,6 +108,21 @@ type CompanyUpdate struct {
 	PublishedAt string
 }
 
+type CompanyFinancialReport struct {
+	ID          int64
+	CompanyID   int64
+	CompanyName string
+	ReportType  string
+	Title       string
+	Period      string
+	FiscalDate  string
+	Revenue     float64
+	NetIncome   float64
+	CashBalance float64
+	Status      string
+	PublishedAt string
+}
+
 type WatchlistItem struct {
 	ID             int64
 	UserID         int64

@@ -86,6 +86,20 @@ func (s *Store) Migrate() error {
 			body TEXT NOT NULL,
 			published_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS company_financial_reports (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			company_id INTEGER NOT NULL REFERENCES companies(id),
+			report_type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			period TEXT NOT NULL,
+			fiscal_date TEXT NOT NULL,
+			revenue REAL NOT NULL,
+			net_income REAL NOT NULL,
+			cash_balance REAL NOT NULL,
+			status TEXT NOT NULL,
+			published_at TEXT NOT NULL,
+			UNIQUE(company_id, report_type, period)
+		)`,
 		`CREATE TABLE IF NOT EXISTS watchlists (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -457,7 +471,7 @@ func (s *Store) SeedDemoData() error {
 	}
 	if _, err := tx.Exec(`INSERT INTO notifications (user_id, title, body, status, created_at) VALUES
 		(2, '欢迎使用 Pre-IPO 演示系统', '演示投资人账号已准备就绪。', 'unread', ?),
-		(3, 'Seller workflow ready', '你可以提交卖出订单并跟踪执行状态。', 'unread', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
+		(3, '卖方流程已就绪', '你可以提交卖出订单并跟踪执行状态。', 'unread', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO risk_alerts (severity, status, subject, note, created_at) VALUES
@@ -483,7 +497,173 @@ func (s *Store) SeedDemoData() error {
 	return s.ensureDemoDepth()
 }
 
+func demoCompanyName(index int) string {
+	prefixes := []string{"星河", "云帆", "启明", "澜山", "青石", "曜合", "元启", "凌岳", "钧策", "瀚辰", "朝杉", "珑越", "安澜", "睿远", "森合", "映川", "极澈", "知行", "云栖", "星瀚"}
+	cores := []string{"智能", "数科", "能源", "医疗", "机器人", "半导体", "云网", "生物", "材料", "安全", "芯片", "算力", "金融", "物流", "空间"}
+	suffixes := []string{"科技", "网络", "系统", "集团", "软件", "平台", "实验室", "创新"}
+	if index <= 0 {
+		index = 1
+	}
+	offset := index - 1
+	return prefixes[offset%len(prefixes)] + cores[(offset*7)%len(cores)] + suffixes[(offset*11)%len(suffixes)]
+}
+
+type popularUSSPVSeed struct {
+	name            string
+	industry        string
+	valuation       string
+	round           string
+	sharePrice      float64
+	description     string
+	restrictions    string
+	dealName        string
+	intro           string
+	minSubscription float64
+	targetSize      float64
+	feeDescription  string
+}
+
+func popularUSSPVSeeds() []popularUSSPVSeed {
+	return []popularUSSPVSeed{
+		{"SpaceX", "航天与卫星互联网", "$350.0B", "Pre-IPO轮", 185.00, "美国商业航天、发射服务与卫星互联网公司，二级市场关注度长期居前。", "优先购买权 + 公司同意", "SpaceX 星链与航天专项 SPV", "聚焦 SpaceX 存量股份转让机会，底层资产覆盖商业发射、星链网络和航天基础设施增长主题。", 100000, 25000000, "2% 年度管理费，退出后 10% 业绩分成"},
+		{"OpenAI", "人工智能基础模型", "$300.0B", "Pre-IPO轮", 168.00, "美国人工智能基础模型与企业 AI 平台公司，围绕模型、应用和算力生态持续扩张。", "公司同意 + 合格投资人限制", "OpenAI 基础模型专项 SPV", "面向 OpenAI 相关普通股或优先股二级份额，关注企业 AI 采用、模型订阅和开发者生态。", 100000, 22000000, "2% 年度管理费，退出后 12% 业绩分成"},
+		{"Anthropic", "人工智能安全与模型", "$180.0B", "增长轮", 132.00, "美国 AI 安全与大模型公司，企业级 Claude 产品线获得高关注。", "公司同意 + 转让窗口限制", "Anthropic 企业 AI 专项 SPV", "聚焦 Anthropic 二级份额，跟踪企业大模型部署、云平台合作和安全对齐能力。", 75000, 18000000, "1.8% 年度管理费，退出后 10% 业绩分成"},
+		{"Stripe", "金融科技支付", "$91.5B", "Pre-IPO轮", 112.00, "美国企业支付、账单和金融基础设施公司，全球互联网商户覆盖广。", "优先购买权 + 公司同意", "Stripe 支付基础设施 SPV", "围绕 Stripe 股权流动性机会，关注企业支付、嵌入式金融和全球商户网络。", 75000, 16000000, "1.75% 年度管理费，退出后 10% 业绩分成"},
+		{"Databricks", "数据与人工智能平台", "$62.0B", "增长轮", 86.00, "美国湖仓一体和企业数据 AI 平台公司，服务大型企业数据工作负载。", "公司同意 + 信息权限制", "Databricks 数据智能 SPV", "聚焦 Databricks 存量股转让，关注数据湖仓、机器学习平台和企业 AI 工具链。", 75000, 14000000, "1.75% 年度管理费，退出后 10% 业绩分成"},
+		{"xAI", "人工智能基础模型", "$80.0B", "增长轮", 94.00, "美国基础模型与智能产品公司，围绕实时数据和推理能力受到市场关注。", "公司同意 + 合格投资人限制", "xAI 模型生态 SPV", "面向 xAI 相关二级份额，关注基础模型、实时数据产品和算力扩张节奏。", 75000, 15000000, "2% 年度管理费，退出后 12% 业绩分成"},
+		{"Anduril Industries", "国防科技", "$30.5B", "增长轮", 58.00, "美国国防科技公司，提供自主系统、传感器和软件定义防务平台。", "公司同意 + 国防行业转让审查", "Anduril 国防科技 SPV", "聚焦 Anduril 股权流动性机会，覆盖自主系统、边境安全和国防软件化主题。", 75000, 12000000, "1.8% 年度管理费，退出后 10% 业绩分成"},
+		{"Ramp", "企业支出管理", "$22.5B", "增长轮", 41.00, "美国企业支出管理和财务自动化平台，服务中大型企业预算与付款流程。", "优先购买权 + 公司同意", "Ramp 财务自动化 SPV", "围绕 Ramp 二级份额，关注企业卡、费用控制、采购和财务工作流自动化。", 50000, 9000000, "1.5% 年度管理费，退出后 8% 业绩分成"},
+		{"Scale AI", "数据标注与模型评估", "$14.0B", "增长轮", 36.00, "美国 AI 数据、模型评估和政府企业 AI 基础设施公司。", "公司同意 + 客户集中度提示", "Scale AI 数据基础设施 SPV", "聚焦 Scale AI 股权流动性，跟踪训练数据、模型评测和公共部门 AI 需求。", 50000, 8500000, "1.5% 年度管理费，退出后 8% 业绩分成"},
+		{"Rippling", "人力资源与 IT 平台", "$13.5B", "增长轮", 34.00, "美国 HR、薪资、身份和设备管理一体化平台。", "优先购买权 + 公司同意", "Rippling 企业运营 SPV", "面向 Rippling 二级份额，关注人力资源、薪资、IT 管理和身份自动化平台扩张。", 50000, 8500000, "1.5% 年度管理费，退出后 8% 业绩分成"},
+		{"Plaid", "金融数据网络", "$13.4B", "增长轮", 32.00, "美国金融数据连接和开放银行基础设施公司。", "公司同意 + 合规转让限制", "Plaid 金融数据网络 SPV", "聚焦 Plaid 二级股权，覆盖账户连接、开放银行、风控和金融应用生态。", 50000, 8000000, "1.5% 年度管理费，退出后 8% 业绩分成"},
+		{"Chime", "数字银行", "$25.0B", "Pre-IPO轮", 47.00, "美国数字银行和消费者金融服务平台，拥有大规模零售用户基础。", "公司同意 + 金融合规限制", "Chime 数字银行 SPV", "围绕 Chime 二级份额，关注消费者金融、借记账户、薪资直达和金融普惠产品。", 50000, 10000000, "1.6% 年度管理费，退出后 8% 业绩分成"},
+		{"Discord", "社群通信平台", "$15.0B", "增长轮", 38.00, "美国社群语音、消息和创作者社区平台。", "优先购买权 + 公司同意", "Discord 社群平台 SPV", "聚焦 Discord 股权流动性，关注游戏社区、订阅会员和创作者商业化。", 50000, 9000000, "1.5% 年度管理费，退出后 8% 业绩分成"},
+		{"Notion", "协作软件", "$10.0B", "增长轮", 29.00, "美国知识管理、协作文档和团队工作区平台。", "公司同意 + 转让窗口限制", "Notion 协作软件 SPV", "面向 Notion 二级份额，关注文档协作、AI 工作区和团队生产力增长。", 50000, 7500000, "1.4% 年度管理费，退出后 8% 业绩分成"},
+		{"Airtable", "低代码协作平台", "$11.0B", "增长轮", 28.00, "美国低代码数据库和业务应用搭建平台。", "公司同意 + 信息权限制", "Airtable 低代码平台 SPV", "围绕 Airtable 股权流动性，关注低代码工作流、团队数据应用和企业协作场景。", 50000, 7500000, "1.4% 年度管理费，退出后 8% 业绩分成"},
+		{"Grammarly", "AI 写作助手", "$13.0B", "增长轮", 31.00, "美国 AI 写作、沟通辅助和企业生产力软件公司。", "优先购买权 + 公司同意", "Grammarly AI 写作 SPV", "聚焦 Grammarly 二级份额，关注个人与企业写作助手、品牌沟通和 AI 生产力工具。", 50000, 8000000, "1.4% 年度管理费，退出后 8% 业绩分成"},
+		{"Epic Games", "游戏与实时 3D 引擎", "$32.0B", "增长轮", 63.00, "美国游戏内容、虚幻引擎和实时 3D 生态公司。", "公司同意 + 行业转让限制", "Epic Games 游戏引擎 SPV", "面向 Epic Games 二级份额，覆盖游戏内容、虚幻引擎、数字资产商店和创作者生态。", 75000, 12000000, "1.7% 年度管理费，退出后 10% 业绩分成"},
+		{"Fanatics", "体育电商与收藏品", "$31.0B", "增长轮", 59.00, "美国体育授权电商、收藏品和球迷商业化平台。", "公司同意 + 转让窗口限制", "Fanatics 体育消费 SPV", "聚焦 Fanatics 股权流动性，关注体育授权商品、球星卡、博彩和球迷经济。", 50000, 9000000, "1.5% 年度管理费，退出后 8% 业绩分成"},
+		{"Flexport", "数字货运与供应链", "$8.0B", "增长轮", 24.00, "美国数字货运代理和全球供应链管理平台。", "公司同意 + 信息权限制", "Flexport 供应链科技 SPV", "围绕 Flexport 二级份额，关注跨境货运、供应链可视化和物流软件化。", 50000, 7000000, "1.4% 年度管理费，退出后 8% 业绩分成"},
+		{"Gusto", "薪资与中小企业平台", "$10.0B", "增长轮", 27.00, "美国中小企业薪资、人事、福利和合规平台。", "优先购买权 + 公司同意", "Gusto SMB 薪资平台 SPV", "聚焦 Gusto 股权流动性，关注 SMB 薪资、福利、税务合规和雇主服务网络。", 50000, 7000000, "1.4% 年度管理费，退出后 8% 业绩分成"},
+	}
+}
+
+func (s *Store) ensurePopularUSSPVProjects() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for index, seed := range popularUSSPVSeeds() {
+		companyID, err := ensureSeedCompany(tx, seed)
+		if err != nil {
+			return err
+		}
+		dealID, err := ensureSeedSPVDeal(tx, companyID, seed)
+		if err != nil {
+			return err
+		}
+		if err := ensureSeedSPVVehicle(tx, dealID, seed, index); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func ensureSeedCompany(tx *sql.Tx, seed popularUSSPVSeed) (int64, error) {
+	var companyID int64
+	err := tx.QueryRow(`SELECT id FROM companies WHERE name = ?`, seed.name).Scan(&companyID)
+	if err == nil {
+		return companyID, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	res, err := tx.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, 'limited', ?)`,
+		seed.name, seed.industry, seed.valuation, seed.round, seed.sharePrice, seed.description, seed.restrictions)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func ensureSeedSPVDeal(tx *sql.Tx, companyID int64, seed popularUSSPVSeed) (int64, error) {
+	var dealID int64
+	err := tx.QueryRow(`SELECT id FROM deals WHERE name = ?`, seed.dealName).Scan(&dealID)
+	if err == nil {
+		_, err = tx.Exec(`UPDATE deals SET company_id = ?, deal_type = 'spv', structure = ?, min_subscription = ?, target_size = ?, fee_description = ?, status = 'open' WHERE id = ?`,
+			companyID, seed.intro, seed.minSubscription, seed.targetSize, seed.feeDescription, dealID)
+		return dealID, err
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	res, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES (?, ?, 'spv', ?, ?, ?, ?, 'open')`,
+		companyID, seed.dealName, seed.intro, seed.minSubscription, seed.targetSize, seed.feeDescription)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func ensureSeedSPVVehicle(tx *sql.Tx, dealID int64, seed popularUSSPVSeed, index int) error {
+	var exists int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM spv_vehicles WHERE deal_id = ?`, dealID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists > 0 {
+		_, err := tx.Exec(`UPDATE spv_vehicles SET name = ?, jurisdiction = 'Delaware', manager = '美国热门资产 SPV 管理人', share_class = 'Class A', total_units = ?, issued_units = ? WHERE deal_id = ?`,
+			seed.dealName+" 载体", int64(seed.targetSize/100), int64(seed.targetSize/100)*int64(18+index%7)/100, dealID)
+		return err
+	}
+	totalUnits := int64(seed.targetSize / 100)
+	issuedUnits := totalUnits * int64(18+index%7) / 100
+	_, err := tx.Exec(`INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES (?, ?, 'Delaware', '美国热门资产 SPV 管理人', 'Class A', ?, ?)`,
+		dealID, seed.dealName+" 载体", totalUnits, issuedUnits)
+	return err
+}
+
+func (s *Store) renameNumberedDemoCompanies() error {
+	rows, err := s.db.Query(`SELECT id, name FROM companies WHERE name LIKE 'PreIPO Growth %' OR name LIKE '未上市成长 %'`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type rename struct {
+		id   int64
+		name string
+	}
+	var renames []rename
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return err
+		}
+		var index int
+		if _, err := fmt.Sscanf(name, "PreIPO Growth %d", &index); err != nil {
+			if _, err := fmt.Sscanf(name, "未上市成长 %d", &index); err != nil {
+				continue
+			}
+		}
+		renames = append(renames, rename{id: id, name: demoCompanyName(index)})
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, item := range renames {
+		if _, err := s.db.Exec(`UPDATE companies SET name = ? WHERE id = ?`, item.name, item.id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Store) ensureDemoDepth() error {
+	if err := s.renameNumberedDemoCompanies(); err != nil {
+		return err
+	}
 	var companyCount int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM companies`).Scan(&companyCount); err != nil {
 		return err
@@ -499,13 +679,16 @@ func (s *Store) ensureDemoDepth() error {
 		if i%7 == 0 {
 			status = "limited"
 		}
-		name := fmt.Sprintf("未上市成长 %03d", i)
+		name := demoCompanyName(i)
 		description := fmt.Sprintf("%s赛道的高成长未上市公司，收入、客户和融资进展用于演示资产发现与二级流转。", industry)
 		restrictions := "优先购买权 + 公司同意"
 		if _, err := s.db.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			name, industry, valuation, round, price, description, status, restrictions); err != nil {
 			return err
 		}
+	}
+	if err := s.ensurePopularUSSPVProjects(); err != nil {
+		return err
 	}
 
 	companies, err := s.Companies()
@@ -551,6 +734,9 @@ func (s *Store) ensureDemoDepth() error {
 			}
 		}
 	}
+	if err := s.ensureCompanyFinancialReports(companies); err != nil {
+		return err
+	}
 
 	var sellCount int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM sell_orders`).Scan(&sellCount); err != nil {
@@ -577,6 +763,107 @@ func (s *Store) ensureDemoDepth() error {
 		}
 	}
 	return nil
+}
+
+type demoReportPeriod struct {
+	reportType string
+	period     string
+	fiscalDate string
+}
+
+func (s *Store) ensureCompanyFinancialReports(companies []domain.Company) error {
+	periods := demoFinancialReportPeriods(time.Now())
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO company_financial_reports (company_id, report_type, title, period, fiscal_date, revenue, net_income, cash_balance, status, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, company := range companies {
+		baseRevenue := 90 + float64(company.ID%29)*13 + company.SharePrice*3
+		for index, period := range periods {
+			growth := 1 + float64(index)*0.045 + float64(company.ID%7)*0.018
+			if period.reportType == "annual" {
+				growth += 0.18
+			}
+			revenue := baseRevenue * growth
+			netMargin := 0.08 + float64(company.ID%6)*0.012
+			if period.reportType == "quarterly" {
+				revenue = revenue / 4 * (0.92 + float64(index%4)*0.04)
+				netMargin -= 0.01
+			}
+			netIncome := revenue * netMargin
+			cashBalance := baseRevenue*(0.55+float64(company.ID%8)*0.045) + float64(index)*6
+			title := fmt.Sprintf("%s %s年报", company.Name, period.period)
+			if period.reportType == "quarterly" {
+				title = fmt.Sprintf("%s %s季报", company.Name, period.period)
+			}
+			if _, err := stmt.Exec(company.ID, period.reportType, title, period.period, period.fiscalDate, revenue, netIncome, cashBalance, "available", publishedDateForPeriod(period.fiscalDate, company.ID)); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+func demoFinancialReportPeriods(now time.Time) []demoReportPeriod {
+	latestAnnualYear := now.Year() - 1
+	periods := make([]demoReportPeriod, 0, 9)
+	for year := latestAnnualYear - 4; year <= latestAnnualYear; year++ {
+		periods = append(periods, demoReportPeriod{
+			reportType: "annual",
+			period:     fmt.Sprintf("%d", year),
+			fiscalDate: fmt.Sprintf("%d-12-31", year),
+		})
+	}
+	year := now.Year()
+	quarter := (int(now.Month()) - 1) / 3
+	if quarter == 0 {
+		year--
+		quarter = 4
+	}
+	var quarters []demoReportPeriod
+	for len(quarters) < 4 {
+		quarters = append(quarters, demoReportPeriod{
+			reportType: "quarterly",
+			period:     fmt.Sprintf("%d-Q%d", year, quarter),
+			fiscalDate: quarterEndDate(year, quarter),
+		})
+		quarter--
+		if quarter == 0 {
+			year--
+			quarter = 4
+		}
+	}
+	for index := len(quarters) - 1; index >= 0; index-- {
+		periods = append(periods, quarters[index])
+	}
+	return periods
+}
+
+func quarterEndDate(year, quarter int) string {
+	switch quarter {
+	case 1:
+		return fmt.Sprintf("%d-03-31", year)
+	case 2:
+		return fmt.Sprintf("%d-06-30", year)
+	case 3:
+		return fmt.Sprintf("%d-09-30", year)
+	default:
+		return fmt.Sprintf("%d-12-31", year)
+	}
+}
+
+func publishedDateForPeriod(fiscalDate string, companyID int64) string {
+	parsed, err := time.Parse("2006-01-02", fiscalDate)
+	if err != nil {
+		return time.Now().Format(time.RFC3339)
+	}
+	return parsed.AddDate(0, 1, int(15+companyID%12)).Format(time.RFC3339)
 }
 
 func (s *Store) Authenticate(email, password string) (domain.User, error) {
@@ -702,12 +989,12 @@ func (s *Store) UpdateUserRiskRating(ctx context.Context, actorID, userID int64,
 		return sql.ErrNoRows
 	}
 	if note == "" {
-		note = "risk rating updated"
+		note = "风险评级已更新"
 	}
 	if err := insertAudit(ctx, tx, actorID, "update_user_risk_rating", "user", userID, fmt.Sprintf("%s -> %s: %s", email, rating, note)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Risk rating updated", fmt.Sprintf("Your platform risk rating is now %s", rating)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "Risk rating updated", fmt.Sprintf("平台风险评级已更新为%s", zhText(rating))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -722,7 +1009,7 @@ func (s *Store) ApproveUser(ctx context.Context, actorID, userID int64) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = 'approved', aml_status = 'approved', accreditation_status = 'approved', risk_rating = 'medium' WHERE id = ?`, userID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "approve_user", "user", userID, "KYC and accreditation approved"); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "approve_user", "user", userID, "KYC、AML 与合格投资人状态已通过"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -737,7 +1024,7 @@ func (s *Store) RejectUser(ctx context.Context, actorID, userID int64) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE users SET kyc_status = 'rejected', aml_status = 'rejected', accreditation_status = 'rejected', risk_rating = 'high' WHERE id = ?`, userID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "reject_user", "user", userID, "KYC, AML and accreditation rejected"); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "reject_user", "user", userID, "KYC、AML 与合格投资人状态已拒绝"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -792,7 +1079,7 @@ func (s *Store) CreateComplianceReview(ctx context.Context, userID int64, review
 	if err := insertAudit(ctx, tx, userID, "create_compliance_review", "compliance_review", id, reviewType); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Compliance review submitted", fmt.Sprintf("%s review is pending", reviewType)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "Compliance review submitted", fmt.Sprintf("%s复核已提交，当前待处理", zhText(reviewType))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -830,7 +1117,7 @@ func (s *Store) ResolveComplianceReview(ctx context.Context, actorID, reviewID i
 	if err := insertAudit(ctx, tx, actorID, action, "compliance_review", reviewID, fmt.Sprintf("%s -> %s", reviewType, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Compliance review resolved", fmt.Sprintf("%s review was %s", reviewType, next)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "Compliance review resolved", fmt.Sprintf("%s复核结果为%s", zhText(reviewType), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -972,7 +1259,7 @@ func (s *Store) AddToWatchlist(ctx context.Context, userID, companyID int64) err
 	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO watchlists (user_id, company_id, added_at) VALUES (?, ?, ?)`, userID, companyID, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, userID, "add_watchlist", "company", companyID, "company added to watchlist"); err != nil {
+	if err := insertAudit(ctx, tx, userID, "add_watchlist", "company", companyID, "公司已加入关注列表"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -990,7 +1277,7 @@ func (s *Store) RemoveFromWatchlist(ctx context.Context, userID, companyID int64
 	if _, err := tx.ExecContext(ctx, `DELETE FROM watchlists WHERE user_id = ? AND company_id = ?`, userID, companyID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, userID, "remove_watchlist", "company", companyID, "company removed from watchlist"); err != nil {
+	if err := insertAudit(ctx, tx, userID, "remove_watchlist", "company", companyID, "公司已移出关注列表"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1014,6 +1301,34 @@ func (s *Store) CompanyUpdates(companyID int64, limit int) ([]domain.CompanyUpda
 	}
 	defer rows.Close()
 	return scanCompanyUpdates(rows)
+}
+
+func (s *Store) CompanyFinancialReports(companyID int64, limit int) ([]domain.CompanyFinancialReport, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	query := `SELECT r.id, r.company_id, c.name, r.report_type, r.title, r.period, r.fiscal_date, r.revenue, r.net_income, r.cash_balance, r.status, r.published_at
+		FROM company_financial_reports r JOIN companies c ON c.id = r.company_id`
+	var rows *sql.Rows
+	var err error
+	if companyID > 0 {
+		rows, err = s.db.Query(query+` WHERE r.company_id = ? ORDER BY r.fiscal_date DESC, r.id DESC LIMIT ?`, companyID, limit)
+	} else {
+		rows, err = s.db.Query(query+` ORDER BY r.fiscal_date DESC, r.id DESC LIMIT ?`, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var reports []domain.CompanyFinancialReport
+	for rows.Next() {
+		var report domain.CompanyFinancialReport
+		if err := rows.Scan(&report.ID, &report.CompanyID, &report.CompanyName, &report.ReportType, &report.Title, &report.Period, &report.FiscalDate, &report.Revenue, &report.NetIncome, &report.CashBalance, &report.Status, &report.PublishedAt); err != nil {
+			return nil, err
+		}
+		reports = append(reports, report)
+	}
+	return reports, rows.Err()
 }
 
 func (s *Store) PortfolioCompanyUpdates(userID int64, limit int) ([]domain.CompanyUpdate, error) {
@@ -1164,7 +1479,7 @@ func (s *Store) CreateSellOrder(ctx context.Context, sellerID, companyID, shares
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if err := insertAudit(ctx, tx, sellerID, "create_sell_order", "sell_order", id, "seller submitted shares for sale"); err != nil {
+	if err := insertAudit(ctx, tx, sellerID, "create_sell_order", "sell_order", id, "卖方提交出售意向"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1188,10 +1503,10 @@ func (s *Store) CancelSellOrder(ctx context.Context, sellerID, orderID int64) er
 	if _, err := tx.ExecContext(ctx, `UPDATE sell_orders SET status = 'cancelled' WHERE id = ? AND seller_id = ?`, orderID, sellerID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, sellerID, "cancel_sell_order", "sell_order", orderID, "seller cancelled open order"); err != nil {
+	if err := insertAudit(ctx, tx, sellerID, "cancel_sell_order", "sell_order", orderID, "卖方取消开放订单"); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Sell order cancelled", fmt.Sprintf("%s sell order was cancelled", companyName)); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "Sell order cancelled", fmt.Sprintf("%s卖出订单已取消", companyName)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1208,7 +1523,7 @@ func (s *Store) CreateBuyInterest(ctx context.Context, investorID, companyID int
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if err := insertAudit(ctx, tx, investorID, "create_buy_interest", "buy_interest", id, "investor submitted buy interest"); err != nil {
+	if err := insertAudit(ctx, tx, investorID, "create_buy_interest", "buy_interest", id, "投资人提交买入意向"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1232,10 +1547,10 @@ func (s *Store) CancelBuyInterest(ctx context.Context, investorID, interestID in
 	if _, err := tx.ExecContext(ctx, `UPDATE buy_interests SET status = 'cancelled' WHERE id = ? AND investor_id = ?`, interestID, investorID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, investorID, "cancel_buy_interest", "buy_interest", interestID, "investor cancelled buy interest"); err != nil {
+	if err := insertAudit(ctx, tx, investorID, "cancel_buy_interest", "buy_interest", interestID, "投资人取消买入意向"); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Buy interest cancelled", fmt.Sprintf("%s buy interest was cancelled", companyName)); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "Buy interest cancelled", fmt.Sprintf("%s买入意向已取消", companyName)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1431,7 +1746,7 @@ func (s *Store) AdvanceTransaction(ctx context.Context, actorID, transactionID i
 	if err := insertAudit(ctx, tx, actorID, "advance_transaction", "transaction", transactionID, fmt.Sprintf("%s -> %s", stage, next)); err != nil {
 		return err
 	}
-	notificationBody := fmt.Sprintf("%s transaction moved from %s to %s", companyName, stage, next)
+	notificationBody := fmt.Sprintf("%s交易状态已由%s更新为%s", companyName, zhText(stage), zhText(next))
 	if err := insertNotification(ctx, tx, buyerID, "Transaction status updated", notificationBody); err != nil {
 		return err
 	}
@@ -1464,7 +1779,7 @@ func (s *Store) CancelTransaction(ctx context.Context, actorID, transactionID in
 	if err := insertAudit(ctx, tx, actorID, "cancel_transaction", "transaction", transactionID, fmt.Sprintf("%s -> %s", stage, domain.StageCancelled)); err != nil {
 		return err
 	}
-	body := fmt.Sprintf("%s transaction was cancelled from %s", companyName, stage)
+	body := fmt.Sprintf("%s交易已从%s状态取消", companyName, zhText(stage))
 	if err := insertNotification(ctx, tx, buyerID, "Transaction cancelled", body); err != nil {
 		return err
 	}
@@ -1581,13 +1896,13 @@ func (s *Store) UpdateDealStatus(ctx context.Context, actorID, dealID int64, sta
 		return err
 	}
 	if note == "" {
-		note = "deal status updated"
+		note = "项目状态已更新"
 	}
 	if err := insertAudit(ctx, tx, actorID, "update_deal_status", "deal", dealID, fmt.Sprintf("%s -> %s: %s", current, status, note)); err != nil {
 		return err
 	}
 	for _, userID := range subscriberIDs {
-		if err := insertNotification(ctx, tx, userID, "Deal status updated", fmt.Sprintf("%s moved from %s to %s", dealName, current, status)); err != nil {
+		if err := insertNotification(ctx, tx, userID, "Deal status updated", fmt.Sprintf("%s项目状态已由%s更新为%s", dealName, zhText(current), zhText(status))); err != nil {
 			return err
 		}
 	}
@@ -1728,7 +2043,7 @@ func (s *Store) AdvanceSubscription(ctx context.Context, actorID, subscriptionID
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription status updated", fmt.Sprintf("%s moved from %s to %s", dealName, status, next)); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "Subscription status updated", fmt.Sprintf("%s认购状态已由%s更新为%s", dealName, zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1756,7 +2071,7 @@ func (s *Store) CancelSubscription(ctx context.Context, actorID, subscriptionID 
 	if err := insertAudit(ctx, tx, actorID, "cancel_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, domain.SubscriptionCancelled)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription cancelled", fmt.Sprintf("%s subscription was cancelled from %s", dealName, status)); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "Subscription cancelled", fmt.Sprintf("%s认购已从%s状态取消", dealName, zhText(status))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1820,7 +2135,7 @@ func (s *Store) CreateSubscriptionDocument(ctx context.Context, actorID, subscri
 	if err := insertAudit(ctx, tx, actorID, "create_subscription_document", "subscription_document", id, fmt.Sprintf("subscription #%d %s", subscriptionID, documentType)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription document created", fmt.Sprintf("%s document %s is drafted", dealName, documentType)); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "Subscription document created", fmt.Sprintf("%s的%s已起草", dealName, zhText(documentType))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1864,7 +2179,7 @@ func (s *Store) AdvanceSubscriptionDocument(ctx context.Context, actorID, docume
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription_document", "subscription_document", documentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription document updated", fmt.Sprintf("%s subscription #%d %s moved from %s to %s", dealName, subscriptionID, documentType, status, next)); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "Subscription document updated", fmt.Sprintf("%s认购#%d的%s已由%s更新为%s", dealName, subscriptionID, zhText(documentType), zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2114,7 +2429,7 @@ func (s *Store) CreateExecutionApproval(ctx context.Context, actorID int64, appr
 	if err := insertAudit(ctx, tx, actorID, "create_execution_approval", "execution_approval", id, fmt.Sprintf("transaction #%d %s", approval.TransactionID, approval.ApprovalType)); err != nil {
 		return err
 	}
-	body := fmt.Sprintf("%s %s approval is pending", companyName, approval.ApprovalType)
+	body := fmt.Sprintf("%s的%s审批已进入待处理", companyName, zhText(approval.ApprovalType))
 	if err := insertNotification(ctx, tx, buyerID, "Execution approval updated", body); err != nil {
 		return err
 	}
@@ -2155,7 +2470,7 @@ func (s *Store) AdvanceExecutionApproval(ctx context.Context, actorID, approvalI
 	if err := insertAudit(ctx, tx, actorID, "advance_execution_approval", "execution_approval", approvalID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	body := fmt.Sprintf("%s %s approval moved from %s to %s", companyName, approvalType, status, next)
+	body := fmt.Sprintf("%s的%s审批已由%s更新为%s", companyName, zhText(approvalType), zhText(status), zhText(next))
 	if err := insertNotification(ctx, tx, buyerID, "Execution approval updated", body); err != nil {
 		return err
 	}
@@ -2256,7 +2571,7 @@ func (s *Store) CreateEscrowPayment(ctx context.Context, actorID int64, payment 
 	if err := insertAudit(ctx, tx, actorID, "create_escrow_payment", "escrow_payment", id, fmt.Sprintf("transaction #%d amount %.2f", payment.TransactionID, payment.Amount)); err != nil {
 		return err
 	}
-	body := fmt.Sprintf("%s escrow payment %.2f is %s", companyName, payment.Amount, payment.Status)
+	body := fmt.Sprintf("%s托管付款%.2f当前为%s", companyName, payment.Amount, zhText(payment.Status))
 	if err := insertNotification(ctx, tx, buyerID, "Escrow payment updated", body); err != nil {
 		return err
 	}
@@ -2300,7 +2615,7 @@ func (s *Store) AdvanceEscrowPayment(ctx context.Context, actorID, paymentID int
 	if err := insertAudit(ctx, tx, actorID, "advance_escrow_payment", "escrow_payment", paymentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	body := fmt.Sprintf("%s escrow payment %.2f moved from %s to %s", companyName, amount, status, next)
+	body := fmt.Sprintf("%s托管付款%.2f已由%s更新为%s", companyName, amount, zhText(status), zhText(next))
 	if err := insertNotification(ctx, tx, buyerID, "Escrow payment updated", body); err != nil {
 		return err
 	}
@@ -2464,10 +2779,10 @@ func (s *Store) CreateCapitalCall(ctx context.Context, actorID int64, call domai
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if err := insertAudit(ctx, tx, actorID, "create_capital_call", "capital_call", id, fmt.Sprintf("amount %.2f due %s", call.Amount, call.DueDate)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "create_capital_call", "capital_call", id, fmt.Sprintf("金额 %.2f，截止 %s", call.Amount, call.DueDate)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, call.UserID, "Capital call issued", fmt.Sprintf("A capital call of %.2f is due on %s", call.Amount, call.DueDate)); err != nil {
+	if err := insertNotification(ctx, tx, call.UserID, "Capital call issued", fmt.Sprintf("资本调用%.2f需在%s前完成", call.Amount, call.DueDate)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2490,10 +2805,10 @@ func (s *Store) ConfirmCapitalCall(ctx context.Context, userID, callID int64) er
 	if _, err := tx.ExecContext(ctx, `UPDATE capital_calls SET status = 'funded' WHERE id = ? AND user_id = ?`, callID, userID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, userID, "confirm_capital_call", "capital_call", callID, fmt.Sprintf("funded %.2f", amount)); err != nil {
+	if err := insertAudit(ctx, tx, userID, "confirm_capital_call", "capital_call", callID, fmt.Sprintf("已出资 %.2f", amount)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Capital call funded", fmt.Sprintf("Your capital call of %.2f was marked funded", amount)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "Capital call funded", fmt.Sprintf("你的资本调用%.2f已标记为已出资", amount)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2521,7 +2836,7 @@ func (s *Store) CreateDistribution(ctx context.Context, actorID int64, distribut
 	if err := insertAudit(ctx, tx, actorID, "create_distribution", "distribution", id, distribution.Status); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, distribution.UserID, "Distribution created", fmt.Sprintf("Distribution %.2f is %s", distribution.Amount, distribution.Status)); err != nil {
+	if err := insertNotification(ctx, tx, distribution.UserID, "Distribution created", fmt.Sprintf("分配%.2f当前为%s", distribution.Amount, zhText(distribution.Status))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2549,7 +2864,7 @@ func (s *Store) AdvanceDistribution(ctx context.Context, actorID, distributionID
 	if err := insertAudit(ctx, tx, actorID, "advance_distribution", "distribution", distributionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Distribution status updated", fmt.Sprintf("Distribution %.2f moved from %s to %s", amount, status, next)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "Distribution status updated", fmt.Sprintf("分配%.2f已由%s更新为%s", amount, zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2620,7 +2935,7 @@ func (s *Store) CreateReport(ctx context.Context, actorID int64, report domain.I
 	if err := insertAudit(ctx, tx, actorID, "create_report", "investor_report", id, report.Title); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, report.UserID, "Investor report available", fmt.Sprintf("%s for %s is %s", report.Title, report.Period, report.Status)); err != nil {
+	if err := insertNotification(ctx, tx, report.UserID, "Investor report available", fmt.Sprintf("%s（%s）当前为%s", report.Title, report.Period, zhText(report.Status))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2649,7 +2964,7 @@ func (s *Store) AdvanceReport(ctx context.Context, actorID, reportID int64) erro
 	if err := insertAudit(ctx, tx, actorID, "advance_report", "investor_report", reportID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Investor report updated", fmt.Sprintf("%s for %s moved from %s to %s", title, period, status, next)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "Investor report updated", fmt.Sprintf("%s（%s）已由%s更新为%s", title, period, zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2818,11 +3133,11 @@ func (s *Store) AddRiskAction(ctx context.Context, actorID, alertID, assigneeID 
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if err := insertAudit(ctx, tx, actorID, "add_risk_action", "risk_action", id, fmt.Sprintf("risk #%d %s", alertID, action)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "add_risk_action", "risk_action", id, fmt.Sprintf("风险 #%d %s", alertID, zhText(action))); err != nil {
 		return err
 	}
 	if assigneeID > 0 {
-		if err := insertNotification(ctx, tx, assigneeID, "Risk alert assigned", fmt.Sprintf("%s requires review", subject)); err != nil {
+		if err := insertNotification(ctx, tx, assigneeID, "Risk alert assigned", fmt.Sprintf("%s需要复核", subject)); err != nil {
 			return err
 		}
 	}
@@ -2838,10 +3153,10 @@ func (s *Store) ResolveRiskAlert(ctx context.Context, actorID, alertID int64) er
 	if _, err := tx.ExecContext(ctx, `UPDATE risk_alerts SET status = 'resolved' WHERE id = ?`, alertID); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO risk_actions (alert_id, actor_id, action, note, created_at) VALUES (?, ?, 'resolved', 'status -> resolved', ?)`, alertID, actorID, time.Now().Format(time.RFC3339)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO risk_actions (alert_id, actor_id, action, note, created_at) VALUES (?, ?, 'resolved', '状态已更新为已解决', ?)`, alertID, actorID, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "resolve_risk_alert", "risk_alert", alertID, "status -> resolved"); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "resolve_risk_alert", "risk_alert", alertID, "状态已更新为已解决"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2952,11 +3267,11 @@ func (s *Store) CreateSupportTicketMessage(ctx context.Context, actor domain.Use
 	if _, err := tx.ExecContext(ctx, `UPDATE support_tickets SET note = ? WHERE id = ?`, message, ticketID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actor.ID, "reply_support_ticket", "support_ticket_message", id, fmt.Sprintf("ticket #%d", ticketID)); err != nil {
+	if err := insertAudit(ctx, tx, actor.ID, "reply_support_ticket", "support_ticket_message", id, fmt.Sprintf("工单 #%d", ticketID)); err != nil {
 		return err
 	}
 	if actor.Role == domain.RoleAdmin {
-		if err := insertNotification(ctx, tx, ticketUserID, "Support ticket reply", fmt.Sprintf("%s has a new admin reply", subject)); err != nil {
+		if err := insertNotification(ctx, tx, ticketUserID, "Support ticket reply", fmt.Sprintf("%s有新的管理员回复", subject)); err != nil {
 			return err
 		}
 	} else {
@@ -2981,7 +3296,7 @@ func (s *Store) CreateSupportTicketMessage(ctx context.Context, actor domain.Use
 			return err
 		}
 		for _, adminID := range adminIDs {
-			if err := insertNotification(ctx, tx, adminID, "Support ticket reply", fmt.Sprintf("%s has a new user reply", subject)); err != nil {
+			if err := insertNotification(ctx, tx, adminID, "Support ticket reply", fmt.Sprintf("%s有新的用户回复", subject)); err != nil {
 				return err
 			}
 		}
@@ -3003,10 +3318,10 @@ func (s *Store) CloseSupportTicket(ctx context.Context, actorID, ticketID int64)
 	if _, err := tx.ExecContext(ctx, `UPDATE support_tickets SET status = 'closed' WHERE id = ?`, ticketID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "close_support_ticket", "support_ticket", ticketID, "status -> closed"); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "close_support_ticket", "support_ticket", ticketID, "状态已更新为已关闭"); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, ticketUserID, "Support ticket closed", fmt.Sprintf("%s has been closed", subject)); err != nil {
+	if err := insertNotification(ctx, tx, ticketUserID, "Support ticket closed", fmt.Sprintf("%s已关闭", subject)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -3041,4 +3356,62 @@ func insertNotification(ctx context.Context, tx *sql.Tx, userID int64, title, bo
 	_, err := tx.ExecContext(ctx, `INSERT INTO notifications (user_id, title, body, status, created_at) VALUES (?, ?, ?, 'unread', ?)`,
 		userID, title, body, time.Now().Format(time.RFC3339))
 	return err
+}
+
+func zhText(value any) string {
+	text := fmt.Sprint(value)
+	labels := map[string]string{
+		"low":                    "低",
+		"medium":                 "中",
+		"high":                   "高",
+		"kyc":                    "KYC",
+		"aml":                    "AML",
+		"accreditation":          "合格投资人",
+		"all":                    "全部合规",
+		"pending_review":         "待审核",
+		"approved":               "已通过",
+		"rejected":               "已拒绝",
+		"open":                   "开放",
+		"closed":                 "已关闭",
+		"cancelled":              "已取消",
+		"interest_submitted":     "已提交意向",
+		"matched":                "已撮合",
+		"company_review":         "公司审核",
+		"rofr_pending":           "优先购买权待处理",
+		"payment_pending":        "待付款",
+		"settled":                "已结算",
+		"submitted":              "已提交",
+		"admin_confirmed":        "后台已确认",
+		"funded":                 "已出资",
+		"active":                 "生效中",
+		"drafted":                "已起草",
+		"sent":                   "已发送",
+		"signed":                 "已签署",
+		"archived":               "已归档",
+		"pending":                "待处理",
+		"waived":                 "已豁免",
+		"not_started":            "未开始",
+		"instruction_sent":       "指令已发送",
+		"released":               "已释放",
+		"pending_funding":        "待出资",
+		"available":              "可查看",
+		"paid":                   "已支付",
+		"assigned":               "已分配",
+		"note":                   "备注",
+		"mitigation":             "风险缓释",
+		"resolved":               "已解决",
+		"Subscription Agreement": "认购协议",
+		"Operating Agreement":    "运营协议",
+		"Risk Disclosure":        "风险揭示书",
+		"W-9 / Tax Form":         "税务表格",
+		"rofr":                   "优先购买权",
+		"company_approval":       "公司审批",
+		"portfolio":              "投资组合",
+		"tax":                    "税务",
+		"capital_account":        "资本账户",
+	}
+	if label, ok := labels[text]; ok {
+		return label
+	}
+	return strings.ReplaceAll(text, "_", " ")
 }

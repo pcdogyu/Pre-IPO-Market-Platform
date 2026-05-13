@@ -125,7 +125,7 @@
         <h2>{{t .Lang "label.escrow_payments"}}</h2>
         <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="0.01" step="0.01" value="33600" required></label>
-        <label>{{t .Lang "label.status"}}<select name="status"><option value="instruction_sent">instruction_sent</option><option value="funded">funded</option><option value="released">released</option></select></label>
+        <label>{{t .Lang "label.status"}}<select name="status"><option value="instruction_sent">指令已发送</option><option value="funded">已出资</option><option value="released">已释放</option></select></label>
         <label>{{t .Lang "label.reference"}}<input name="reference" value="ESCROW-REF-001" required></label>
         <label>{{t .Lang "label.note"}}<input name="note" value="托管指令已记录"></label>
         <button>{{t .Lang "form.submit"}}</button>
@@ -224,7 +224,7 @@
     </section>
     <section>
       <h2>{{t .Lang "label.audit"}}</h2>
-      <table><thead><tr><th>{{t .Lang "label.actor"}}</th><th>动作</th><th>对象</th><th>{{t .Lang "label.note"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .AuditLogs}}<tr><td>{{.ActorName}}</td><td>{{statusLabel .Action $.Lang}}</td><td>{{statusLabel .ObjectType $.Lang}} #{{.ObjectID}}</td><td>{{.Note}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <table><thead><tr><th>{{t .Lang "label.actor"}}</th><th>动作</th><th>对象</th><th>{{t .Lang "label.note"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .AuditLogs}}<tr><td>{{.ActorName}}</td><td>{{statusLabel .Action $.Lang}}</td><td>{{statusLabel .ObjectType $.Lang}} #{{.ObjectID}}</td><td>{{statusLabel .Note $.Lang}}</td><td>{{.CreatedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
   {{template "footer.html" .}}

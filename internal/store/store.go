@@ -473,7 +473,7 @@ func (s *Store) SeedDemoData() error {
 		(1, 2, '投资人询问 SPV 运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`INSERT INTO audit_logs (actor_id, action, object_type, object_id, note, created_at) VALUES (1, 'seed', 'system', 1, 'demo data initialized', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+	if _, err := tx.Exec(`INSERT INTO audit_logs (actor_id, action, object_type, object_id, note, created_at) VALUES (1, 'seed', 'system', 1, '演示数据已初始化', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 

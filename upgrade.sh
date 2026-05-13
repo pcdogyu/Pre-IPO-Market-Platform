@@ -3,6 +3,9 @@ set -euo pipefail
 
 SERVICE_NAME="${SERVICE_NAME:-preipo-market}"
 APP_DIR="${APP_DIR:-/opt/preipo-market-platform}"
+STATE_DIR="${STATE_DIR:-/var/lib/preipo-market-platform}"
+ADDR="${ADDR:-:8080}"
+DB_PATH="${DB_PATH:-$STATE_DIR/preipo_demo.db}"
 BIN_PATH="$APP_DIR/preipo-market-platform"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,6 +51,34 @@ go build -trimpath -ldflags "$LDFLAGS" -o "$TMP_DIR/preipo-market-platform" "$RO
 echo "Installing binary to $BIN_PATH..."
 sudo install -d -m 0755 "$APP_DIR"
 sudo install -m 0755 "$TMP_DIR/preipo-market-platform" "$BIN_PATH"
+
+if ! sudo systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
+  echo "Creating systemd service $SERVICE_NAME..."
+  cat <<UNIT | sudo tee "/etc/systemd/system/$SERVICE_NAME.service" >/dev/null
+[Unit]
+Description=Pre-IPO Market Platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$APP_DIR
+ExecStart=$BIN_PATH --addr $ADDR --db $DB_PATH
+Restart=on-failure
+RestartSec=5
+DynamicUser=yes
+StateDirectory=$(basename "$STATE_DIR")
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  sudo systemctl daemon-reload
+  sudo systemctl enable "$SERVICE_NAME"
+fi
 
 echo "Starting service $SERVICE_NAME..."
 sudo systemctl restart "$SERVICE_NAME"

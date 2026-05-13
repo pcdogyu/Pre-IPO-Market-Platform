@@ -48,7 +48,7 @@ func loginCookie(t *testing.T, app http.Handler, email string) *http.Cookie {
 
 func TestInvestorCanSubmitBuyInterest(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 	form := url.Values{"company_id": {"1"}, "amount": {"60000"}, "target_price": {"42.5"}}
 	req := httptest.NewRequest(http.MethodPost, "/orders/buy-interest", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -62,7 +62,7 @@ func TestInvestorCanSubmitBuyInterest(t *testing.T) {
 
 func TestSellerCanSubmitSellOrder(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "seller@demo.local")
+	cookie := loginCookie(t, app, "seller")
 	form := url.Values{"company_id": {"1"}, "shares": {"500"}, "target_price": {"44"}}
 	req := httptest.NewRequest(http.MethodPost, "/orders/sell", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -76,7 +76,7 @@ func TestSellerCanSubmitSellOrder(t *testing.T) {
 
 func TestUsersCanCancelOpenOrders(t *testing.T) {
 	app := testApp(t)
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	form := url.Values{"interest_id": {"1"}}
 	req := httptest.NewRequest(http.MethodPost, "/orders/buy-interest/cancel", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -87,7 +87,7 @@ func TestUsersCanCancelOpenOrders(t *testing.T) {
 		t.Fatalf("cancel buy interest status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	sellerCookie := loginCookie(t, app, "seller@demo.local")
+	sellerCookie := loginCookie(t, app, "seller")
 	form = url.Values{"order_id": {"1"}}
 	req = httptest.NewRequest(http.MethodPost, "/orders/sell/cancel", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -112,7 +112,7 @@ func TestUsersCanCancelOpenOrders(t *testing.T) {
 
 func TestInvestorCannotAccessAdmin(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
@@ -124,7 +124,7 @@ func TestInvestorCannotAccessAdmin(t *testing.T) {
 
 func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 	app := testApp(t)
-	userCookie := loginCookie(t, app, "pending@demo.local")
+	userCookie := loginCookie(t, app, "pending")
 	form := url.Values{"review_type": {"all"}, "note": {"Updated compliance package"}}
 	req := httptest.NewRequest(http.MethodPost, "/compliance/reviews/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -135,7 +135,7 @@ func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 		t.Fatalf("create compliance review status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	req = httptest.NewRequest(http.MethodPost, "/admin/compliance-reviews/1/approve", nil)
 	req.AddCookie(adminCookie)
 	rec = httptest.NewRecorder()
@@ -144,7 +144,7 @@ func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 		t.Fatalf("approve compliance review status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	userCookie = loginCookie(t, app, "pending@demo.local")
+	userCookie = loginCookie(t, app, "pending")
 	req = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
 	req.AddCookie(userCookie)
 	rec = httptest.NewRecorder()
@@ -163,7 +163,7 @@ func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 
 func TestInvestorCanSubscribeToDeal(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 	form := url.Values{"amount": {"30000"}}
 	req := httptest.NewRequest(http.MethodPost, "/deals/1/subscribe", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -177,7 +177,7 @@ func TestInvestorCanSubscribeToDeal(t *testing.T) {
 
 func TestAdminCanCreateMatch(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"sell_order_id": {"1"}, "buy_interest_id": {"1"}, "shares": {"500"}, "price": {"42"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/matches/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -191,7 +191,7 @@ func TestAdminCanCreateMatch(t *testing.T) {
 
 func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 
 	companyForm := url.Values{
 		"name":                  {"Atlas Robotics"},
@@ -233,7 +233,7 @@ func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 
 func TestAdminCanUpdateDealStatus(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"deal_id": {"1"}, "status": {"closed"}, "note": {"Capacity review"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/deals/status", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -262,7 +262,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 
 func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"user_id": {"2"}, "risk_rating": {"high"}, "note": {"Annual suitability review"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/users/risk-rating", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -291,7 +291,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 
 func TestUserCanManageWatchlist(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 	form := url.Values{"company_id": {"3"}}
 	req := httptest.NewRequest(http.MethodPost, "/watchlist/add", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -325,7 +325,7 @@ func TestUserCanManageWatchlist(t *testing.T) {
 
 func TestPortfolioRendersValuationSummary(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 	req := httptest.NewRequest(http.MethodGet, "/portfolio", nil)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
@@ -344,7 +344,7 @@ func TestPortfolioRendersValuationSummary(t *testing.T) {
 
 func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 
 	cases := []struct {
 		path string
@@ -380,7 +380,7 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 
 func TestAdminCanAdvanceDistribution(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"user_id": {"2"}, "amount": {"1500"}, "status": {"pending"}, "tax_document": {"K-1 ready"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/distributions/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -417,7 +417,7 @@ func TestAdminCanAdvanceDistribution(t *testing.T) {
 
 func TestAdminCanAdvanceReport(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"user_id": {"2"}, "report_type": {"tax"}, "title": {"Q3 Tax Draft"}, "period": {"2026-Q3"}, "status": {"pending"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/reports/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -454,7 +454,7 @@ func TestAdminCanAdvanceReport(t *testing.T) {
 
 func TestAdminCanAddRiskAction(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"alert_id": {"1"}, "assigned_to": {"1"}, "action": {"assigned"}, "note": {"Assign owner"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/risks/actions/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -483,7 +483,7 @@ func TestAdminCanAddRiskAction(t *testing.T) {
 
 func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 	app := testApp(t)
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	form := url.Values{"ticket_id": {"1"}, "message": {"Investor follow-up"}}
 	req := httptest.NewRequest(http.MethodPost, "/support/tickets/reply", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -494,7 +494,7 @@ func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 		t.Fatalf("investor reply status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	form = url.Values{"ticket_id": {"1"}, "message": {"Admin response"}, "redirect": {"/admin"}}
 	req = httptest.NewRequest(http.MethodPost, "/support/tickets/reply", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -523,7 +523,7 @@ func TestUserAndAdminCanReplySupportTicket(t *testing.T) {
 
 func TestAdminCanRejectAndCancel(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 
 	for _, path := range []string{
 		"/admin/reviews/5/reject",
@@ -542,7 +542,7 @@ func TestAdminCanRejectAndCancel(t *testing.T) {
 
 func TestUserCanCreateNegotiation(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 	form := url.Values{"transaction_id": {"1"}, "offer_price": {"41.75"}, "shares": {"800"}, "note": {"Buyer counter offer"}, "redirect": {"/market/orders"}}
 	req := httptest.NewRequest(http.MethodPost, "/negotiations/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -556,7 +556,7 @@ func TestUserCanCreateNegotiation(t *testing.T) {
 
 func TestAdminCanManageExecutionDocuments(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "admin@demo.local")
+	cookie := loginCookie(t, app, "admin")
 	form := url.Values{"transaction_id": {"1"}, "document_type": {"Transfer Instruction"}, "note": {"Transfer packet"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/documents/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -578,7 +578,7 @@ func TestAdminCanManageExecutionDocuments(t *testing.T) {
 
 func TestAdminCanManageExecutionApprovals(t *testing.T) {
 	app := testApp(t)
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	form := url.Values{"transaction_id": {"1"}, "approval_type": {"company_approval"}, "due_date": {"2026-07-15"}, "note": {"Board consent request"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/approvals/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -597,7 +597,7 @@ func TestAdminCanManageExecutionApprovals(t *testing.T) {
 		t.Fatalf("advance approval status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
 	req.AddCookie(investorCookie)
 	rec = httptest.NewRecorder()
@@ -616,7 +616,7 @@ func TestAdminCanManageExecutionApprovals(t *testing.T) {
 
 func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
 	app := testApp(t)
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	form := url.Values{"subscription_id": {"1"}, "document_type": {"Risk Disclosure"}, "note": {"Risk disclosure package"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/subscription-documents/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -635,7 +635,7 @@ func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
 		t.Fatalf("advance subscription document status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
 	req.AddCookie(investorCookie)
 	rec = httptest.NewRecorder()
@@ -654,7 +654,7 @@ func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
 
 func TestAdminCanManageEscrowPayments(t *testing.T) {
 	app := testApp(t)
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	form := url.Values{
 		"transaction_id": {"1"},
 		"amount":         {"33600"},
@@ -679,7 +679,7 @@ func TestAdminCanManageEscrowPayments(t *testing.T) {
 		t.Fatalf("advance escrow payment status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
 	req.AddCookie(investorCookie)
 	rec = httptest.NewRecorder()
@@ -698,7 +698,7 @@ func TestAdminCanManageEscrowPayments(t *testing.T) {
 
 func TestUserCanMarkNotificationRead(t *testing.T) {
 	app := testApp(t)
-	cookie := loginCookie(t, app, "investor@demo.local")
+	cookie := loginCookie(t, app, "investor")
 
 	req := httptest.NewRequest(http.MethodPost, "/notifications/1/read", nil)
 	req.AddCookie(cookie)
@@ -730,7 +730,7 @@ func TestUserCanMarkNotificationRead(t *testing.T) {
 
 func TestCapitalCallRoutes(t *testing.T) {
 	app := testApp(t)
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	form := url.Values{"user_id": {"2"}, "deal_id": {"1"}, "amount": {"7500"}, "due_date": {"2026-08-01"}, "notice": {"Follow-on capital call"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/capital-calls/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -741,7 +741,7 @@ func TestCapitalCallRoutes(t *testing.T) {
 		t.Fatalf("create capital call status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	req = httptest.NewRequest(http.MethodPost, "/capital-calls/1/confirm", nil)
 	req.AddCookie(investorCookie)
 	rec = httptest.NewRecorder()
@@ -753,7 +753,7 @@ func TestCapitalCallRoutes(t *testing.T) {
 
 func TestAdminCanPublishCompanyUpdate(t *testing.T) {
 	app := testApp(t)
-	adminCookie := loginCookie(t, app, "admin@demo.local")
+	adminCookie := loginCookie(t, app, "admin")
 	form := url.Values{
 		"company_id":  {"1"},
 		"update_type": {"financing"},
@@ -769,7 +769,7 @@ func TestAdminCanPublishCompanyUpdate(t *testing.T) {
 		t.Fatalf("publish update status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	investorCookie := loginCookie(t, app, "investor@demo.local")
+	investorCookie := loginCookie(t, app, "investor")
 	req = httptest.NewRequest(http.MethodGet, "/portfolio", nil)
 	req.AddCookie(investorCookie)
 	rec = httptest.NewRecorder()

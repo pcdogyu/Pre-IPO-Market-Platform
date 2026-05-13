@@ -340,11 +340,11 @@ func (s *Store) SeedDemoData() error {
 	users := []struct {
 		email, name, role, lang, kyc, aml, acc, risk string
 	}{
-		{"admin@demo.local", "平台管理员", "admin", "zh", "approved", "approved", "approved", "low"},
-		{"investor@demo.local", "合格投资人", "investor", "zh", "approved", "approved", "approved", "medium"},
-		{"seller@demo.local", "早期股东", "seller", "zh", "approved", "approved", "approved", "medium"},
-		{"institution@demo.local", "机构买方", "institution", "en", "approved", "approved", "approved", "low"},
-		{"pending@demo.local", "待审核投资人", "investor", "en", "pending_review", "pending_review", "pending_review", "high"},
+		{"admin", "平台管理员", "admin", "zh", "approved", "approved", "approved", "low"},
+		{"investor", "合格投资人", "investor", "zh", "approved", "approved", "approved", "medium"},
+		{"seller", "早期股东", "seller", "zh", "approved", "approved", "approved", "medium"},
+		{"institution", "机构买方", "institution", "en", "approved", "approved", "approved", "low"},
+		{"pending", "待审核投资人", "investor", "en", "pending_review", "pending_review", "pending_review", "high"},
 	}
 	for _, u := range users {
 		if _, err := tx.Exec(`INSERT INTO users (email, password_hash, name, role, language, kyc_status, aml_status, accreditation_status, risk_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -483,18 +483,28 @@ func (s *Store) SeedDemoData() error {
 func (s *Store) Authenticate(email, password string) (domain.User, error) {
 	var user domain.User
 	var hash string
-	err := s.db.QueryRow(`SELECT id, email, password_hash, name, role, language, kyc_status, aml_status, accreditation_status, risk_rating FROM users WHERE email = ?`, email).
+	identifier := normalizeLoginIdentifier(email)
+	legacyIdentifier := identifier + "@demo.local"
+	err := s.db.QueryRow(`SELECT id, email, password_hash, name, role, language, kyc_status, aml_status, accreditation_status, risk_rating FROM users WHERE email = ? OR email = ? ORDER BY CASE WHEN email = ? THEN 0 ELSE 1 END LIMIT 1`, identifier, legacyIdentifier, identifier).
 		Scan(&user.ID, &user.Email, &hash, &user.Name, &user.Role, &user.Language, &user.KYCStatus, &user.AMLStatus, &user.AccreditationStatus, &user.RiskRating)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return user, errors.New("invalid email or password")
+			return user, errors.New("invalid login or password")
 		}
 		return user, err
 	}
 	if !security.CheckPassword(hash, password) {
-		return user, errors.New("invalid email or password")
+		return user, errors.New("invalid login or password")
 	}
 	return user, nil
+}
+
+func normalizeLoginIdentifier(identifier string) string {
+	identifier = strings.TrimSpace(strings.ToLower(identifier))
+	if strings.HasSuffix(identifier, "@demo.local") {
+		return strings.TrimSuffix(identifier, "@demo.local")
+	}
+	return identifier
 }
 
 func (s *Store) CreateSession(userID int64, token string, expiresAt time.Time) error {

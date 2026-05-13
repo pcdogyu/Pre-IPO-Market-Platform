@@ -30,7 +30,7 @@ func Run() {
 
 	server := apphttp.NewServer(db)
 	log.Printf("Pre-IPO MVP running on http://localhost%s", *addr)
-	log.Printf("Demo accounts: admin@demo.local / investor@demo.local / seller@demo.local, password: demo123")
+	log.Printf("Demo accounts: admin / investor / seller / institution / pending, password: demo123")
 	if err := http.ListenAndServe(*addr, server.Routes()); err != nil {
 		log.Println(err)
 		os.Exit(1)

@@ -26,7 +26,7 @@ func testStore(t *testing.T) *Store {
 
 func TestStoreCreatesOrdersAndSubscriptions(t *testing.T) {
 	s := testStore(t)
-	user, err := s.Authenticate("investor@demo.local", "demo123")
+	user, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -59,9 +59,20 @@ func TestStoreCreatesOrdersAndSubscriptions(t *testing.T) {
 	}
 }
 
+func TestAuthenticateAcceptsLegacyDemoEmailSuffix(t *testing.T) {
+	s := testStore(t)
+	user, err := s.Authenticate("admin@demo.local", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate legacy admin login: %v", err)
+	}
+	if user.Email != "admin" {
+		t.Fatalf("legacy login resolved user %q, want %q", user.Email, "admin")
+	}
+}
+
 func TestAdvanceTransactionCreatesSettledHolding(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -88,7 +99,7 @@ func TestAdvanceTransactionCreatesSettledHolding(t *testing.T) {
 
 func TestCreateMatchedTransaction(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -116,11 +127,11 @@ func TestCreateMatchedTransaction(t *testing.T) {
 
 func TestUsersCanCancelOpenOrders(t *testing.T) {
 	s := testStore(t)
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
-	seller, err := s.Authenticate("seller@demo.local", "demo123")
+	seller, err := s.Authenticate("seller", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate seller: %v", err)
 	}
@@ -197,7 +208,7 @@ func TestUsersCanCancelOpenOrders(t *testing.T) {
 
 func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -236,7 +247,7 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	if len(spvs) < 3 {
 		t.Fatalf("expected new SPV vehicle, got %d", len(spvs))
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -288,11 +299,11 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 
 func TestWatchlistWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	institution, err := s.Authenticate("institution@demo.local", "demo123")
+	institution, err := s.Authenticate("institution", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate institution: %v", err)
 	}
@@ -341,11 +352,11 @@ func TestWatchlistWorkflow(t *testing.T) {
 
 func TestSubscriptionActivationAllocatesSPVUnits(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -421,11 +432,11 @@ func TestSubscriptionActivationAllocatesSPVUnits(t *testing.T) {
 
 func TestAdminCanUpdateDealStatus(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -484,7 +495,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 
 func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -599,11 +610,11 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 
 func TestPortfolioValuationSummary(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -633,7 +644,7 @@ func TestPortfolioValuationSummary(t *testing.T) {
 
 func TestRejectAndCancelWorkflows(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -679,11 +690,11 @@ func TestRejectAndCancelWorkflows(t *testing.T) {
 
 func TestComplianceReviewWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	pending, err := s.Authenticate("pending@demo.local", "demo123")
+	pending, err := s.Authenticate("pending", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate pending user: %v", err)
 	}
@@ -699,7 +710,7 @@ func TestComplianceReviewWorkflow(t *testing.T) {
 	}
 	var reviewID int64
 	for _, review := range reviews {
-		if review.UserEmail == "pending@demo.local" && review.ReviewType == "all" && review.Status == domain.ReviewPending {
+		if review.UserEmail == "pending" && review.ReviewType == "all" && review.Status == domain.ReviewPending {
 			reviewID = review.ID
 			break
 		}
@@ -710,7 +721,7 @@ func TestComplianceReviewWorkflow(t *testing.T) {
 	if err := s.ResolveComplianceReview(context.Background(), admin.ID, reviewID, true); err != nil {
 		t.Fatalf("approve compliance review: %v", err)
 	}
-	approved, err := s.Authenticate("pending@demo.local", "demo123")
+	approved, err := s.Authenticate("pending", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate approved user: %v", err)
 	}
@@ -731,11 +742,11 @@ func TestComplianceReviewWorkflow(t *testing.T) {
 
 func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -745,7 +756,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "high", "Annual suitability review"); err != nil {
 		t.Fatalf("update risk rating: %v", err)
 	}
-	updated, err := s.Authenticate("investor@demo.local", "demo123")
+	updated, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate updated investor: %v", err)
 	}
@@ -766,7 +777,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 
 func TestNegotiationWorkflows(t *testing.T) {
 	s := testStore(t)
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -791,7 +802,7 @@ func TestNegotiationWorkflows(t *testing.T) {
 	if err := s.CreateNegotiation(context.Background(), outsider, 1, 40, 100, "Invalid"); err == nil {
 		t.Fatal("outsider should not negotiate another user's transaction")
 	}
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -802,7 +813,7 @@ func TestNegotiationWorkflows(t *testing.T) {
 
 func TestExecutionDocumentWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
@@ -829,7 +840,7 @@ func TestExecutionDocumentWorkflow(t *testing.T) {
 	if err := s.AdvanceExecutionDocument(context.Background(), admin.ID, created.ID); err != nil {
 		t.Fatalf("advance document to signed: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -844,11 +855,11 @@ func TestExecutionDocumentWorkflow(t *testing.T) {
 
 func TestExecutionApprovalWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -903,11 +914,11 @@ func TestExecutionApprovalWorkflow(t *testing.T) {
 
 func TestSubscriptionDocumentWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -973,11 +984,11 @@ func TestSubscriptionDocumentWorkflow(t *testing.T) {
 
 func TestEscrowPaymentWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -1041,11 +1052,11 @@ func TestEscrowPaymentWorkflow(t *testing.T) {
 
 func TestNotificationWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -1097,11 +1108,11 @@ func TestNotificationWorkflow(t *testing.T) {
 
 func TestCapitalCallWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
@@ -1146,11 +1157,11 @@ func TestCapitalCallWorkflow(t *testing.T) {
 
 func TestCompanyUpdateWorkflow(t *testing.T) {
 	s := testStore(t)
-	admin, err := s.Authenticate("admin@demo.local", "demo123")
+	admin, err := s.Authenticate("admin", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	investor, err := s.Authenticate("investor@demo.local", "demo123")
+	investor, err := s.Authenticate("investor", "demo123")
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}

@@ -83,11 +83,11 @@ demo123
 
 可用账号：
 
-- `admin@demo.local`：平台管理员，拥有后台访问和状态推进权限。
-- `investor@demo.local`：合格投资人，可提交买入意向、认购项目、查看投资组合。
-- `seller@demo.local`：早期股东，可提交出售意向并跟踪交易执行。
-- `institution@demo.local`：机构买方，可提交买入意向和认购项目。
-- `pending@demo.local`：待审核投资人，用于演示审核和权限限制。
+- `admin`：平台管理员，拥有后台访问和状态推进权限。
+- `investor`：合格投资人，可提交买入意向、认购项目、查看投资组合。
+- `seller`：早期股东，可提交出售意向并跟踪交易执行。
+- `institution`：机构买方，可提交买入意向和认购项目。
+- `pending`：待审核投资人，用于演示审核和权限限制。
 
 ### 测试
 
@@ -204,11 +204,11 @@ demo123
 
 Available accounts:
 
-- `admin@demo.local`: platform admin with operations and status advancement access.
-- `investor@demo.local`: accredited investor who can submit buy interests, subscribe to deals, and view the portfolio.
-- `seller@demo.local`: early shareholder who can submit sell orders and track transaction execution.
-- `institution@demo.local`: institutional buyer who can submit buy interests and subscribe to deals.
-- `pending@demo.local`: pending investor for review and permission-limit demos.
+- `admin`: platform admin with operations and status advancement access.
+- `investor`: accredited investor who can submit buy interests, subscribe to deals, and view the portfolio.
+- `seller`: early shareholder who can submit sell orders and track transaction execution.
+- `institution`: institutional buyer who can submit buy interests and subscribe to deals.
+- `pending`: pending investor for review and permission-limit demos.
 
 ### Tests
 

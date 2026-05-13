@@ -358,9 +358,9 @@ func (s *Store) SeedDemoData() error {
 		sharePrice                        float64
 		description, status, restrictions string
 	}{
-		{"NeuralBridge AI", "人工智能基础设施", "$4.8B", "Series D", 42.50, "企业级 AI 工作流平台，近两年收入高速增长。", "tradable", "优先购买权 + 董事会批准"},
-		{"HelioGrid Energy", "新能源", "$2.1B", "Series C", 18.75, "分布式储能与电网调度软件公司。", "tradable", "需公司同意；30 天优先购买权窗口"},
-		{"QuantumPay", "金融科技", "$6.3B", "Series E", 64.20, "跨境支付和企业财资管理平台。", "limited", "仅限已批准机构买方转让"},
+		{"神经桥 AI", "人工智能基础设施", "$4.8B", "Series D", 42.50, "企业级 AI 工作流平台，近两年收入高速增长。", "tradable", "优先购买权 + 董事会批准"},
+		{"赫利欧电网", "新能源", "$2.1B", "Series C", 18.75, "分布式储能与电网调度软件公司。", "tradable", "需公司同意；30 天优先购买权窗口"},
+		{"量子支付", "金融科技", "$6.3B", "Series E", 64.20, "跨境支付和企业财资管理平台。", "limited", "仅限已批准机构买方转让"},
 	}
 	for _, c := range companies {
 		if _, err := tx.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -384,9 +384,9 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES
-		(2, 'HelioGrid SPV I', 'spv', '单一公司 SPV，提供季度报告', 25000, 5000000, '2% 管理费，门槛收益后 10% 业绩分成', 'open'),
-		(1, 'NeuralBridge 成长组合', 'fund_basket', '多公司成长组合，按比例分配份额', 50000, 8000000, '1.5% 年度管理费', 'open'),
-		(3, 'QuantumPay 直接转让', 'direct_secondary', '面向已批准买方的协商式股份转让', 100000, 3000000, '1% 交易费', 'open')`); err != nil {
+		(2, '赫利欧电网 SPV 一期', 'spv', '单一公司 SPV，提供季度报告', 25000, 5000000, '2% 管理费，门槛收益后 10% 业绩分成', 'open'),
+		(1, '神经桥成长组合', 'fund_basket', '多公司成长组合，按比例分配份额', 50000, 8000000, '1.5% 年度管理费', 'open'),
+		(3, '量子支付直接转让', 'direct_secondary', '面向已批准买方的协商式股份转让', 100000, 3000000, '1% 交易费', 'open')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO subscriptions (investor_id, deal_id, amount, status) VALUES (2, 1, 30000, 'admin_confirmed')`); err != nil {
@@ -398,13 +398,13 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO holdings (user_id, company_name, source_type, cost, status) VALUES
-		(2, 'NeuralBridge AI', 'secondary', 33600, 'matched'),
-		(2, 'HelioGrid Energy', 'spv', 30000, 'admin_confirmed')`); err != nil {
+		(2, '神经桥 AI', 'secondary', 33600, 'matched'),
+		(2, '赫利欧电网', 'spv', 30000, 'admin_confirmed')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO company_updates (company_id, update_type, title, body, published_at) VALUES
-		(1, 'revenue', 'NeuralBridge 年化收入更新', '管理层披露企业客户持续扩张，收入留存率继续改善。', ?),
-		(2, 'financing', 'HelioGrid 战略融资观察', '潜在战略融资可能在下一报告周期前重估公司价值。', ?)`, time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(-24*time.Hour).Format(time.RFC3339)); err != nil {
+		(1, 'revenue', '神经桥年化收入更新', '管理层披露企业客户持续扩张，收入留存率继续改善。', ?),
+		(2, 'financing', '赫利欧电网战略融资观察', '潜在战略融资可能在下一报告周期前重估公司价值。', ?)`, time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(-24*time.Hour).Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO watchlists (user_id, company_id, added_at) VALUES
@@ -413,8 +413,8 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES
-		(1, 'HelioGrid SPV I LLC', 'Delaware', 'PreIPO Demo GP LLC', 'Class A', 500000, 30000),
-		(2, 'NeuralBridge Growth Basket LP', 'Cayman Islands', 'PreIPO Demo GP LLC', 'Limited Partner Units', 800000, 0)`); err != nil {
+		(1, '赫利欧电网 SPV 一期', 'Delaware', '演示管理人 GP', 'Class A', 500000, 30000),
+		(2, '神经桥成长组合 LP', 'Cayman Islands', '演示管理人 GP', 'Limited Partner Units', 800000, 0)`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO execution_documents (transaction_id, document_type, status, signed_at, note) VALUES
@@ -447,7 +447,7 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO capital_calls (user_id, deal_id, amount, due_date, status, notice, created_at) VALUES
-		(2, 1, 5000, '2026-07-15', 'pending', 'HelioGrid SPV I 首次资本调用。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(2, 1, 5000, '2026-07-15', 'pending', '赫利欧电网 SPV 一期首次资本调用。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO investor_reports (user_id, report_type, title, period, status) VALUES
@@ -456,13 +456,13 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO notifications (user_id, title, body, status, created_at) VALUES
-		(2, 'Welcome to Pre-IPO MVP', '演示投资人账号已准备就绪。', 'unread', ?),
+		(2, '欢迎使用 Pre-IPO 演示系统', '演示投资人账号已准备就绪。', 'unread', ?),
 		(3, 'Seller workflow ready', '你可以提交卖出订单并跟踪执行状态。', 'unread', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO risk_alerts (severity, status, subject, note, created_at) VALUES
-		('medium', 'open', 'QuantumPay 转让限制', '仅可撮合已批准的机构买方。', ?),
-		('low', 'monitoring', 'HelioGrid 认购集中度', '最大投资人敞口仍低于内部阈值。', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
+		('medium', 'open', '量子支付转让限制', '仅可撮合已批准的机构买方。', ?),
+		('low', 'monitoring', '赫利欧电网认购集中度', '最大投资人敞口仍低于内部阈值。', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO support_tickets (user_id, status, subject, note, created_at) VALUES
@@ -1536,7 +1536,7 @@ func (s *Store) CreateDeal(ctx context.Context, actorID int64, deal domain.Deal)
 	}
 	id, _ := res.LastInsertId()
 	if deal.DealType == "spv" || deal.DealType == "fund_basket" {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES (?, ?, 'Delaware', 'PreIPO Demo GP LLC', 'Class A', ?, 0)`,
+		if _, err := tx.ExecContext(ctx, `INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES (?, ?, 'Delaware', '演示管理人 GP', 'Class A', ?, 0)`,
 			id, deal.Name+" Vehicle", int64(deal.TargetSize/100)); err != nil {
 			return err
 		}

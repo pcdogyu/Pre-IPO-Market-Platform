@@ -88,7 +88,7 @@ func TestAdvanceTransactionCreatesSettledHolding(t *testing.T) {
 	}
 	var settled bool
 	for _, holding := range holdings {
-		if holding.CompanyName == "NeuralBridge AI" && holding.Status == string(domain.StageSettled) {
+		if holding.CompanyName == "神经桥 AI" && holding.Status == string(domain.StageSettled) {
 			settled = true
 		}
 	}
@@ -320,8 +320,8 @@ func TestWatchlistWorkflow(t *testing.T) {
 	if err := s.PublishCompanyUpdate(context.Background(), admin.ID, domain.CompanyUpdate{
 		CompanyID:  3,
 		UpdateType: "liquidity",
-		Title:      "QuantumPay tender watch",
-		Body:       "Potential tender offer moved to watchlist.",
+		Title:      "量子支付要约观察",
+		Body:       "潜在要约收购已进入观察列表。",
 	}); err != nil {
 		t.Fatalf("publish company update: %v", err)
 	}
@@ -331,7 +331,7 @@ func TestWatchlistWorkflow(t *testing.T) {
 	}
 	var notified bool
 	for _, notification := range notifications {
-		if notification.Title == "Company update published" && notification.Body == "QuantumPay: QuantumPay tender watch" {
+		if notification.Title == "Company update published" && notification.Body == "量子支付: 量子支付要约观察" {
 			notified = true
 		}
 	}
@@ -633,7 +633,7 @@ func TestPortfolioValuationSummary(t *testing.T) {
 	}
 	var foundDirect bool
 	for _, line := range lines {
-		if line.Label == "NeuralBridge AI" && line.SourceType == "secondary" && line.CurrentValue == 36000 {
+		if line.Label == "神经桥 AI" && line.SourceType == "secondary" && line.CurrentValue == 36000 {
 			foundDirect = true
 		}
 	}
@@ -1168,8 +1168,8 @@ func TestCompanyUpdateWorkflow(t *testing.T) {
 	update := domain.CompanyUpdate{
 		CompanyID:  1,
 		UpdateType: "financing",
-		Title:      "NeuralBridge financing memo",
-		Body:       "Board approved a financing process update for current holders.",
+		Title:      "神经桥融资备忘",
+		Body:       "董事会批准向现有持有人更新融资进展。",
 	}
 	if err := s.PublishCompanyUpdate(context.Background(), admin.ID, update); err != nil {
 		t.Fatalf("publish company update: %v", err)
@@ -1180,7 +1180,7 @@ func TestCompanyUpdateWorkflow(t *testing.T) {
 	}
 	var found bool
 	for _, item := range updates {
-		if item.Title == update.Title && item.CompanyName == "NeuralBridge AI" {
+		if item.Title == update.Title && item.CompanyName == "神经桥 AI" {
 			found = true
 		}
 	}

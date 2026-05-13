@@ -309,7 +309,7 @@ func TestUserCanManageWatchlist(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), "QuantumPay") {
+	if !strings.Contains(rec.Body.String(), "量子支付") {
 		t.Fatal("dashboard should render watched company")
 	}
 
@@ -757,8 +757,8 @@ func TestAdminCanPublishCompanyUpdate(t *testing.T) {
 	form := url.Values{
 		"company_id":  {"1"},
 		"update_type": {"financing"},
-		"title":       {"NeuralBridge holder update"},
-		"body":        {"Financing process update for current holders."},
+		"title":       {"神经桥持有人更新"},
+		"body":        {"面向现有持有人的融资进展更新。"},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/admin/company-updates/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -778,7 +778,7 @@ func TestAdminCanPublishCompanyUpdate(t *testing.T) {
 		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "NeuralBridge holder update") {
+	if !strings.Contains(body, "神经桥持有人更新") {
 		t.Fatal("portfolio should render published company update")
 	}
 	if !strings.Contains(body, "公司更新已发布") {

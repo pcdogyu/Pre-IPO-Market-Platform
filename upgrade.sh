@@ -27,9 +27,6 @@ timeout 15s git -C "$ROOT_DIR" pull --ff-only
 
 cd "$ROOT_DIR"
 
-echo "Deleting Go caches..."
-go clean -cache -testcache
-
 echo "Running tests..."
 go test ./...
 

@@ -153,7 +153,7 @@ func TestUserCanSubmitComplianceReviewAndAdminResolve(t *testing.T) {
 		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Compliance Request") {
+	if !strings.Contains(body, "合规复核申请") {
 		t.Fatal("dashboard should render compliance reviews")
 	}
 	if !strings.Contains(body, "approved") {
@@ -644,10 +644,10 @@ func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
 		t.Fatalf("portfolio status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Risk Disclosure") {
+	if !strings.Contains(body, "风险揭示书") {
 		t.Fatal("portfolio should render subscription document")
 	}
-	if !strings.Contains(body, "Subscription document") {
+	if !strings.Contains(body, "认购文件") {
 		t.Fatal("portfolio should render subscription document notifications")
 	}
 }

@@ -27,7 +27,7 @@
         <label>结构<input name="structure" value="单一公司 SPV，按比例分配份额"></label>
         <label>{{t .Lang "label.minimum"}}<input name="min_subscription" type="number" min="1" value="25000"></label>
         <label>{{t .Lang "label.target"}}<input name="target_size" type="number" min="1" value="5000000"></label>
-        <label>{{t .Lang "label.fees"}}<input name="fee_description" value="2% management fee"></label>
+        <label>{{t .Lang "label.fees"}}<input name="fee_description" value="2% 管理费"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
     </section>
@@ -49,7 +49,7 @@
     </section>
     <section>
       <h2>审核队列</h2>
-      <table><thead><tr><th>Email</th><th>{{t .Lang "label.role"}}</th><th>KYC</th><th>Accreditation</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>登录名</th><th>{{t .Lang "label.role"}}</th><th>KYC</th><th>合格投资人</th><th></th></tr></thead><tbody>
         {{range .PendingUsers}}<tr><td>{{.Email}}</td><td>{{statusLabel .Role $.Lang}} · {{statusLabel .RiskRating $.Lang}}</td><td>{{statusLabel .KYCStatus $.Lang}}</td><td>AML {{statusLabel .AMLStatus $.Lang}} / 合格投资人 {{statusLabel .AccreditationStatus $.Lang}}</td><td class="action-cell"><form method="post" action="/admin/reviews/{{.ID}}/approve"><button class="small">{{t $.Lang "form.approve"}}</button></form><form method="post" action="/admin/reviews/{{.ID}}/reject"><button class="small danger">拒绝</button></form></td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
     </section>
@@ -74,7 +74,7 @@
       </div>
       <div>
         <h2>{{t .Lang "label.subscriptions"}}</h2>
-        <table><thead><tr><th>Deal</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
+        <table><thead><tr><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
           {{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{statusLabel .Status $.Lang}}</td><td class="action-cell">{{if not (terminalSub .Status)}}<form method="post" action="/admin/subscriptions/{{.ID}}/advance"><button class="small">{{t $.Lang "form.advance"}}</button></form><form method="post" action="/admin/subscriptions/{{.ID}}/cancel"><button class="small danger">取消</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}
         </tbody></table>
       </div>

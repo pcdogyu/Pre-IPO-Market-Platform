@@ -1399,6 +1399,7 @@ func statusLabel(status any, lang ...string) string {
 		"ROFR Notice":                   "优先购买权通知",
 		"Transfer Instruction":          "转让指令",
 		"IPO readiness":                 "IPO 准备",
+		"Strategic financing":           "战略融资",
 		"Financing":                     "融资",
 		"Revenue":                       "收入",
 		"Governance":                    "治理",

@@ -12,10 +12,10 @@
       <div>
         <p class="eyebrow">Pre-IPO MVP</p>
         <h1>{{t .Lang "login.title"}}</h1>
-        <p class="muted">admin / investor / seller / institution / pending</p>
-        <p class="muted">password: demo123</p>
+        <p class="muted">演示账号：admin / investor / seller / institution / pending</p>
+        <p class="muted">密码：demo123</p>
       </div>
-      {{if .Error}}<div class="alert">Login failed: {{.Error}}</div>{{end}}
+      {{if .Error}}<div class="alert">登录失败：{{.Error}}</div>{{end}}
       <form method="post" action="/auth/login" class="stack">
         <label>{{t .Lang "login.email"}}<input name="email" type="text" value="admin" required></label>
         <label>{{t .Lang "login.password"}}<input name="password" type="password" value="demo123" required></label>

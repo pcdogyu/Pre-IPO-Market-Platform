@@ -343,8 +343,8 @@ func (s *Store) SeedDemoData() error {
 		{"admin", "平台管理员", "admin", "zh", "approved", "approved", "approved", "low"},
 		{"investor", "合格投资人", "investor", "zh", "approved", "approved", "approved", "medium"},
 		{"seller", "早期股东", "seller", "zh", "approved", "approved", "approved", "medium"},
-		{"institution", "机构买方", "institution", "en", "approved", "approved", "approved", "low"},
-		{"pending", "待审核投资人", "investor", "en", "pending_review", "pending_review", "pending_review", "high"},
+		{"institution", "机构买方", "institution", "zh", "approved", "approved", "approved", "low"},
+		{"pending", "待审核投资人", "investor", "zh", "pending_review", "pending_review", "pending_review", "high"},
 	}
 	for _, u := range users {
 		if _, err := tx.Exec(`INSERT INTO users (email, password_hash, name, role, language, kyc_status, aml_status, accreditation_status, risk_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -358,9 +358,9 @@ func (s *Store) SeedDemoData() error {
 		sharePrice                        float64
 		description, status, restrictions string
 	}{
-		{"NeuralBridge AI", "人工智能基础设施", "$4.8B", "Series D", 42.50, "企业级 AI 工作流平台，近两年收入高速增长。", "tradable", "ROFR + board approval required"},
-		{"HelioGrid Energy", "新能源", "$2.1B", "Series C", 18.75, "分布式储能与电网调度软件公司。", "tradable", "Company consent required; 30-day ROFR window"},
-		{"QuantumPay", "金融科技", "$6.3B", "Series E", 64.20, "跨境支付和企业财资管理平台。", "limited", "Transfers limited to approved institutional buyers"},
+		{"NeuralBridge AI", "人工智能基础设施", "$4.8B", "Series D", 42.50, "企业级 AI 工作流平台，近两年收入高速增长。", "tradable", "优先购买权 + 董事会批准"},
+		{"HelioGrid Energy", "新能源", "$2.1B", "Series C", 18.75, "分布式储能与电网调度软件公司。", "tradable", "需公司同意；30 天优先购买权窗口"},
+		{"QuantumPay", "金融科技", "$6.3B", "Series E", 64.20, "跨境支付和企业财资管理平台。", "limited", "仅限已批准机构买方转让"},
 	}
 	for _, c := range companies {
 		if _, err := tx.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -379,22 +379,22 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO negotiations (transaction_id, actor_id, offer_price, shares, note, created_at) VALUES
-		(1, 2, 41.50, 800, 'Buyer requests modest discount for ROFR timing risk.', ?),
-		(1, 3, 42.00, 800, 'Seller accepts if SPA is signed this week.', ?)`, time.Now().Add(-2*time.Hour).Format(time.RFC3339), time.Now().Add(-1*time.Hour).Format(time.RFC3339)); err != nil {
+		(1, 2, 41.50, 800, '买方因优先购买权时间风险要求小幅折价。', ?),
+		(1, 3, 42.00, 800, '卖方接受本周签署股份购买协议的条件。', ?)`, time.Now().Add(-2*time.Hour).Format(time.RFC3339), time.Now().Add(-1*time.Hour).Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES
-		(2, 'HelioGrid SPV I', 'spv', 'Single-company SPV with quarterly reporting', 25000, 5000000, '2% management fee, 10% carry after hurdle', 'open'),
-		(1, 'NeuralBridge Growth Basket', 'fund_basket', 'Multi-company growth basket with pro-rata units', 50000, 8000000, '1.5% annual management fee', 'open'),
-		(3, 'QuantumPay Direct Secondary', 'direct_secondary', 'Direct negotiated share transfer for approved buyers', 100000, 3000000, '1% transaction fee', 'open')`); err != nil {
+		(2, 'HelioGrid SPV I', 'spv', '单一公司 SPV，提供季度报告', 25000, 5000000, '2% 管理费，门槛收益后 10% 业绩分成', 'open'),
+		(1, 'NeuralBridge 成长组合', 'fund_basket', '多公司成长组合，按比例分配份额', 50000, 8000000, '1.5% 年度管理费', 'open'),
+		(3, 'QuantumPay 直接转让', 'direct_secondary', '面向已批准买方的协商式股份转让', 100000, 3000000, '1% 交易费', 'open')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO subscriptions (investor_id, deal_id, amount, status) VALUES (2, 1, 30000, 'admin_confirmed')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES
-		(1, 'Subscription Agreement', 'sent', '', 'Demo SPV subscription agreement sent for signature'),
-		(1, 'Operating Agreement', 'drafted', '', 'SPV operating agreement package')`); err != nil {
+		(1, 'Subscription Agreement', 'sent', '', '演示 SPV 认购协议已发送签署'),
+		(1, 'Operating Agreement', 'drafted', '', 'SPV 运营协议文件包')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO holdings (user_id, company_name, source_type, cost, status) VALUES
@@ -403,8 +403,8 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO company_updates (company_id, update_type, title, body, published_at) VALUES
-		(1, 'revenue', 'NeuralBridge ARR update', 'Management reported continued enterprise expansion and improved gross retention.', ?),
-		(2, 'financing', 'HelioGrid strategic round watch', 'A potential strategic financing could reset valuation before the next reporting cycle.', ?)`, time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(-24*time.Hour).Format(time.RFC3339)); err != nil {
+		(1, 'revenue', 'NeuralBridge 年化收入更新', '管理层披露企业客户持续扩张，收入留存率继续改善。', ?),
+		(2, 'financing', 'HelioGrid 战略融资观察', '潜在战略融资可能在下一报告周期前重估公司价值。', ?)`, time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(-24*time.Hour).Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO watchlists (user_id, company_id, added_at) VALUES
@@ -418,17 +418,17 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO execution_documents (transaction_id, document_type, status, signed_at, note) VALUES
-		(1, 'NDA', 'signed', ?, 'Counterparties cleared confidentiality'),
-		(1, 'SPA', 'drafted', '', 'Pending ROFR package')`, time.Now().Format("2006-01-02")); err != nil {
+		(1, 'NDA', 'signed', ?, '交易双方已完成保密文件'),
+		(1, 'SPA', 'drafted', '', '优先购买权文件包待处理')`, time.Now().Format("2006-01-02")); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO execution_approvals (transaction_id, approval_type, status, due_date, decided_at, note) VALUES
-		(1, 'rofr', 'pending', '2026-06-30', '', 'ROFR notice package prepared'),
-		(1, 'company_approval', 'pending', '2026-07-05', '', 'Board consent request pending')`); err != nil {
+		(1, 'rofr', 'pending', '2026-06-30', '', '优先购买权通知文件已准备'),
+		(1, 'company_approval', 'pending', '2026-07-05', '', '董事会同意申请待处理')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO escrow_payments (transaction_id, amount, status, reference, note, created_at, released_at) VALUES
-		(1, 33600, 'instruction_sent', 'ESCROW-DEMO-001', 'Wire instructions prepared for matched secondary trade.', ?, '')`, time.Now().Format(time.RFC3339)); err != nil {
+		(1, 33600, 'instruction_sent', 'ESCROW-DEMO-001', '已为撮合交易准备付款指令。', ?, '')`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO valuations (company_id, valuation, share_price, as_of_date) VALUES
@@ -438,39 +438,39 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO exit_events (company_id, event_type, description, status, expected_date) VALUES
-		(1, 'IPO readiness', 'Banker bake-off expected after next audit cycle', 'watchlist', '2027-H1'),
-		(2, 'Strategic financing', 'Potential strategic round may refresh valuation', 'monitoring', '2026-Q4')`); err != nil {
+		(1, 'IPO readiness', '预计下一轮审计后启动投行遴选', 'watchlist', '2027-H1'),
+		(2, 'Strategic financing', '潜在战略融资可能刷新估值', 'monitoring', '2026-Q4')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO distributions (user_id, holding_id, amount, status, tax_document) VALUES
-		(2, 2, 0, 'not_due', 'K-1 pending')`); err != nil {
+		(2, 2, 0, 'not_due', 'K-1 待生成')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO capital_calls (user_id, deal_id, amount, due_date, status, notice, created_at) VALUES
-		(2, 1, 5000, '2026-07-15', 'pending', 'Initial capital call for HelioGrid SPV I.', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(2, 1, 5000, '2026-07-15', 'pending', 'HelioGrid SPV I 首次资本调用。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO investor_reports (user_id, report_type, title, period, status) VALUES
-		(2, 'portfolio', 'Q1 2026 Portfolio Statement', '2026-Q1', 'available'),
-		(2, 'tax', '2025 Tax Package Placeholder', '2025', 'pending')`); err != nil {
+		(2, 'portfolio', '2026 年一季度组合报告', '2026-Q1', 'available'),
+		(2, 'tax', '2025 年税务文件占位', '2025', 'pending')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO notifications (user_id, title, body, status, created_at) VALUES
-		(2, 'Welcome to Pre-IPO MVP', 'Your demo investor account is ready.', 'unread', ?),
-		(3, 'Seller workflow ready', 'You can submit sell orders and track execution.', 'unread', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
+		(2, 'Welcome to Pre-IPO MVP', '演示投资人账号已准备就绪。', 'unread', ?),
+		(3, 'Seller workflow ready', '你可以提交卖出订单并跟踪执行状态。', 'unread', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO risk_alerts (severity, status, subject, note, created_at) VALUES
-		('medium', 'open', 'QuantumPay transfer restriction', 'Only approved institutional buyers can be matched.', ?),
-		('low', 'monitoring', 'HelioGrid subscription concentration', 'Top investor exposure remains below internal threshold.', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
+		('medium', 'open', 'QuantumPay 转让限制', '仅可撮合已批准的机构买方。', ?),
+		('low', 'monitoring', 'HelioGrid 认购集中度', '最大投资人敞口仍低于内部阈值。', ?)`, time.Now().Format(time.RFC3339), time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO support_tickets (user_id, status, subject, note, created_at) VALUES
-		(2, 'open', 'Subscription document question', 'Investor asked for SPV operating agreement summary.', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(2, 'open', '认购文件问题', '投资人询问 SPV 运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO support_ticket_messages (ticket_id, actor_id, message, created_at) VALUES
-		(1, 2, 'Investor asked for SPV operating agreement summary.', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(1, 2, '投资人询问 SPV 运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO audit_logs (actor_id, action, object_type, object_id, note, created_at) VALUES (1, 'seed', 'system', 1, 'demo data initialized', ?)`, time.Now().Format(time.RFC3339)); err != nil {
@@ -499,9 +499,9 @@ func (s *Store) ensureDemoDepth() error {
 		if i%7 == 0 {
 			status = "limited"
 		}
-		name := fmt.Sprintf("PreIPO Growth %03d", i)
+		name := fmt.Sprintf("未上市成长 %03d", i)
 		description := fmt.Sprintf("%s赛道的高成长未上市公司，收入、客户和融资进展用于演示资产发现与二级流转。", industry)
-		restrictions := "ROFR + company consent required"
+		restrictions := "优先购买权 + 公司同意"
 		if _, err := s.db.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			name, industry, valuation, round, price, description, status, restrictions); err != nil {
 			return err

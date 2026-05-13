@@ -2,15 +2,27 @@
 <html lang="{{.Lang}}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Company.Name}}</title><link rel="stylesheet" href="/static/app.css"></head>
 <body>
-  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container narrow">
     <section class="page-head"><div><p class="eyebrow">{{.Company.Industry}}</p><h1>{{.Company.Name}}</h1></div><span class="badge">{{.Company.TradableStatus}}</span></section>
     <p class="lead">{{.Company.Description}}</p>
     <dl class="facts wide"><div><dt>{{t .Lang "label.valuation"}}</dt><dd>{{.Company.Valuation}}</dd></div><div><dt>Share Price</dt><dd>{{money .Company.SharePrice}}</dd></div><div><dt>{{t .Lang "label.round"}}</dt><dd>{{.Company.FundingRound}}</dd></div><div><dt>{{t .Lang "label.status"}}</dt><dd>{{.Company.TradableStatus}}</dd></div><div><dt>Transfer Restrictions</dt><dd>{{.Company.TransferRestrictions}}</dd></div></dl>
     <div class="actions"><a class="button" href="/market/orders">{{t .Lang "nav.market"}}</a><a class="button secondary" href="/deals">{{t .Lang "nav.deals"}}</a>{{if index .WatchlistMap .Company.ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.Company.ID}}"><button class="secondary">Unwatch</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.Company.ID}}"><button>Watch</button></form>{{end}}</div>
     <section>
-      <h2>Company Updates</h2>
-      <table><thead><tr><th>Type</th><th>Title</th><th>Summary</th><th>Published</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      <h2>{{t .Lang "label.valuation_history"}}</h2>
+      <div class="chart-panel">
+        <svg viewBox="0 0 720 260" role="img" aria-label="{{t .Lang "label.valuation_history"}}">
+          <line x1="0" y1="220" x2="720" y2="220" class="chart-axis"></line>
+          <line x1="0" y1="0" x2="0" y2="220" class="chart-axis"></line>
+          <polyline points="{{chartPoints .Valuations}}" class="chart-line"></polyline>
+          {{range .Valuations}}<circle class="chart-dot" cx="0" cy="0" r="0"></circle>{{end}}
+        </svg>
+        <table><thead><tr><th>{{t .Lang "label.date"}}</th><th>{{t .Lang "label.valuation"}}</th><th>Share Price</th></tr></thead><tbody>{{range .Valuations}}<tr><td>{{.AsOfDate}}</td><td>{{.Valuation}}</td><td>{{money .SharePrice}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+    </section>
+    <section>
+      <h2>{{t .Lang "label.company_updates"}}</h2>
+      <table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.summary"}}</th><th>{{t .Lang "label.published"}}</th></tr></thead><tbody>{{range .CompanyUpdates}}<tr><td>{{.UpdateType}}</td><td>{{.Title}}</td><td>{{.Body}}</td><td>{{.PublishedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
     </section>
   </main>
   {{template "footer.html" .}}

@@ -2,7 +2,7 @@
 <html lang="{{.Lang}}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "admin.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
 <body>
-  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a><a href="/admin">{{t .Lang "nav.admin"}}</a></nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a><a href="/admin">{{t .Lang "nav.admin"}}</a></nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">Operations</p><h1>{{t .Lang "admin.title"}}</h1></div></section>
     {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}

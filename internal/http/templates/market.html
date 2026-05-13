@@ -2,10 +2,20 @@
 <html lang="{{.Lang}}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{t .Lang "market.title"}}</title><link rel="stylesheet" href="/static/app.css"></head>
 <body>
-  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
+  <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">Secondary Market</p><h1>{{t .Lang "market.title"}}</h1></div></section>
     {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+    <section class="metric-grid">
+      <div class="metric"><span>{{t .Lang "nav.companies"}}</span><strong>{{index .Stats "companies"}}</strong></div>
+      <div class="metric"><span>{{t .Lang "label.sell_depth"}}</span><strong>{{index .Stats "sell_orders"}}</strong></div>
+      <div class="metric"><span>{{t .Lang "label.buy_depth"}}</span><strong>{{index .Stats "buy_orders"}}</strong></div>
+      <div class="metric"><span>{{t .Lang "label.transaction_heat"}}</span><strong>{{index .Stats "transactions"}}</strong></div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><h2>{{t .Lang "label.hot_assets"}}</h2><span class="badge">{{t .Lang "label.market_popularity"}}</span></div>
+      <div class="ticker-list">{{range .Companies}}<a href="/companies/{{.ID}}" class="ticker-chip">{{.Name}} <span>{{money .SharePrice}}</span></a>{{end}}</div>
+    </section>
     <section class="grid two">
       {{if canBuy .User}}
       <form method="post" action="/orders/buy-interest" class="panel stack">

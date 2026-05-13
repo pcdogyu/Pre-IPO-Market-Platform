@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -80,6 +83,7 @@ func NewServer(store *store.Store) *Server {
 		"switchLang":  switchLang,
 		"statusLabel": statusLabel,
 		"percent":     percent,
+		"chartPoints": valuationChartPoints,
 		"terminalTxn": func(s domain.TransactionStage) bool { return s == domain.StageSettled || s == domain.StageCancelled },
 		"terminalSub": func(s domain.SubscriptionStatus) bool {
 			return s == domain.SubscriptionActive || s == domain.SubscriptionCancelled
@@ -118,6 +122,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/support/tickets", s.requireAuth(s.createSupportTicket))
 	mux.HandleFunc("/support/tickets/reply", s.requireAuth(s.replySupportTicket))
 	mux.HandleFunc("/admin", s.requireAdmin(s.admin))
+	mux.HandleFunc("/admin/upgrade", s.requireAdmin(s.upgradeService))
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
 	mux.HandleFunc("/admin/deals/create", s.requireAdmin(s.createDeal))
 	mux.HandleFunc("/admin/deals/status", s.requireAdmin(s.updateDealStatus))
@@ -365,8 +370,9 @@ func (s *Server) companyDetail(w http.ResponseWriter, r *http.Request, user doma
 		return
 	}
 	updates, _ := s.store.CompanyUpdates(company.ID, 10)
+	valuations, _ := s.store.CompanyValuations(company.ID)
 	watched, _ := s.store.WatchlistMap(user.ID)
-	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, WatchlistMap: watched})
+	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, Valuations: valuations, WatchlistMap: watched})
 }
 
 func (s *Server) addWatchlist(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -407,7 +413,13 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 	negotiations, _ := s.store.Negotiations(user)
 	approvals, _ := s.store.ExecutionApprovals(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, Error: r.URL.Query().Get("error")})
+	stats := map[string]int{
+		"companies":    len(companies),
+		"sell_orders":  len(sellOrders),
+		"buy_orders":   len(buyInterests),
+		"transactions": len(transactions),
+	}
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, Stats: stats, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -713,6 +725,40 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, true)
 	logs, _ := s.store.AuditLogs(20)
 	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+}
+
+func (s *Server) upgradeService(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	script := os.Getenv("PREIPO_UPGRADE_SCRIPT")
+	if script == "" {
+		script = "/opt/Pre-IPO-Market-Platform/upgrade.sh"
+	}
+	if !filepath.IsAbs(script) {
+		wd, err := os.Getwd()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		script = filepath.Join(wd, script)
+	}
+	workDir := filepath.Dir(script)
+	unit := fmt.Sprintf("preipo-market-upgrade-%d", time.Now().Unix())
+	var cmd *exec.Cmd
+	if systemdRun, err := exec.LookPath("systemd-run"); err == nil {
+		cmd = exec.Command(systemdRun, "--unit", unit, "--description", "Pre-IPO Market Platform upgrade", "--working-directory", workDir, "/usr/bin/env", "bash", script)
+	} else {
+		cmd = exec.Command("bash", script)
+		cmd.Dir = workDir
+	}
+	if err := cmd.Start(); err != nil {
+		http.Error(w, "upgrade start failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = fmt.Fprintf(w, "升级已启动，请稍后刷新页面。日志查看：journalctl -u %s -f\n", unit)
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -1289,6 +1335,37 @@ func percent(value, total any) string {
 		return "0%"
 	}
 	return fmt.Sprintf("%.0f%%", valueFloat/totalFloat*100)
+}
+
+func valuationChartPoints(records []domain.ValuationRecord) string {
+	if len(records) == 0 {
+		return ""
+	}
+	minPrice := records[0].SharePrice
+	maxPrice := records[0].SharePrice
+	for _, record := range records {
+		if record.SharePrice < minPrice {
+			minPrice = record.SharePrice
+		}
+		if record.SharePrice > maxPrice {
+			maxPrice = record.SharePrice
+		}
+	}
+	if maxPrice == minPrice {
+		maxPrice = minPrice + 1
+	}
+	width := 720.0
+	height := 220.0
+	var points []string
+	for index, record := range records {
+		x := 0.0
+		if len(records) > 1 {
+			x = float64(index) * width / float64(len(records)-1)
+		}
+		y := height - ((record.SharePrice-minPrice)/(maxPrice-minPrice))*height
+		points = append(points, fmt.Sprintf("%.1f,%.1f", x, y))
+	}
+	return strings.Join(points, " ")
 }
 
 func toFloat(value any) float64 {

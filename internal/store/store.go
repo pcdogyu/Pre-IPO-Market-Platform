@@ -324,7 +324,7 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if count > 0 {
-		return nil
+		return s.ensureDemoDepth()
 	}
 
 	hash, err := security.HashPassword("demo123")
@@ -477,7 +477,106 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return s.ensureDemoDepth()
+}
+
+func (s *Store) ensureDemoDepth() error {
+	var companyCount int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM companies`).Scan(&companyCount); err != nil {
+		return err
+	}
+	industries := []string{"人工智能", "金融科技", "企业软件", "新能源", "生物科技", "半导体", "机器人", "网络安全", "数据基础设施", "消费科技"}
+	rounds := []string{"Series B", "Series C", "Series D", "Series E", "Pre-IPO"}
+	for i := companyCount + 1; i <= 100; i++ {
+		industry := industries[(i-1)%len(industries)]
+		round := rounds[(i-1)%len(rounds)]
+		price := 12.0 + float64((i*7)%85) + float64(i%4)*0.25
+		valuation := fmt.Sprintf("$%.1fB", 0.8+float64((i*13)%90)/10)
+		status := "tradable"
+		if i%7 == 0 {
+			status = "limited"
+		}
+		name := fmt.Sprintf("PreIPO Growth %03d", i)
+		description := fmt.Sprintf("%s赛道的高成长未上市公司，收入、客户和融资进展用于演示资产发现与二级流转。", industry)
+		restrictions := "ROFR + company consent required"
+		if _, err := s.db.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			name, industry, valuation, round, price, description, status, restrictions); err != nil {
+			return err
+		}
+	}
+
+	companies, err := s.Companies()
+	if err != nil {
+		return err
+	}
+	dates := []string{"2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31", "2026-05-13"}
+	for _, company := range companies {
+		var valuationCount int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM valuations WHERE company_id = ?`, company.ID).Scan(&valuationCount); err != nil {
+			return err
+		}
+		if valuationCount < len(dates) {
+			base := company.SharePrice
+			if base <= 0 {
+				base = 20
+			}
+			for idx, date := range dates {
+				var exists int
+				if err := s.db.QueryRow(`SELECT COUNT(*) FROM valuations WHERE company_id = ? AND as_of_date = ?`, company.ID, date).Scan(&exists); err != nil {
+					return err
+				}
+				if exists > 0 {
+					continue
+				}
+				multiplier := 0.78 + float64(idx)*0.055 + float64(company.ID%5)*0.01
+				price := base * multiplier
+				valuation := fmt.Sprintf("$%.1fB", price*float64(90+company.ID%40)/1000)
+				if _, err := s.db.Exec(`INSERT INTO valuations (company_id, valuation, share_price, as_of_date) VALUES (?, ?, ?, ?)`, company.ID, valuation, price, date); err != nil {
+					return err
+				}
+			}
+		}
+
+		var updateExists int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM company_updates WHERE company_id = ? AND title = ?`, company.ID, "季度经营更新").Scan(&updateExists); err != nil {
+			return err
+		}
+		if updateExists == 0 {
+			if _, err := s.db.Exec(`INSERT INTO company_updates (company_id, update_type, title, body, published_at) VALUES (?, ?, ?, ?, ?)`,
+				company.ID, "经营", "季度经营更新", "管理层披露收入增长、客户拓展和现金流改善，交易关注度继续提升。", time.Now().Add(-time.Duration(company.ID%72)*time.Hour).Format(time.RFC3339)); err != nil {
+				return err
+			}
+		}
+	}
+
+	var sellCount int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM sell_orders`).Scan(&sellCount); err != nil {
+		return err
+	}
+	for i := sellCount; i < 35 && i < len(companies); i++ {
+		company := companies[i]
+		shares := int64(500 + (i%9)*250)
+		price := company.SharePrice * (0.97 + float64(i%5)*0.01)
+		if _, err := s.db.Exec(`INSERT INTO sell_orders (seller_id, company_id, shares, target_price, status) VALUES (3, ?, ?, ?, 'open')`, company.ID, shares, price); err != nil {
+			return err
+		}
+	}
+	var buyCount int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM buy_interests`).Scan(&buyCount); err != nil {
+		return err
+	}
+	for i := buyCount; i < 45 && i < len(companies); i++ {
+		company := companies[len(companies)-1-i]
+		amount := float64(25000 + (i%12)*15000)
+		price := company.SharePrice * (0.95 + float64(i%6)*0.012)
+		if _, err := s.db.Exec(`INSERT INTO buy_interests (investor_id, company_id, amount, target_price, status) VALUES (2, ?, ?, ?, ?)`, company.ID, amount, price, string(domain.StageInterestSubmitted)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) Authenticate(email, password string) (domain.User, error) {
@@ -2213,6 +2312,23 @@ func (s *Store) AdvanceEscrowPayment(ctx context.Context, actorID, paymentID int
 
 func (s *Store) Valuations() ([]domain.ValuationRecord, error) {
 	rows, err := s.db.Query(`SELECT v.id, v.company_id, c.name, v.valuation, v.share_price, v.as_of_date FROM valuations v JOIN companies c ON c.id = v.company_id ORDER BY v.as_of_date DESC, v.id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var valuations []domain.ValuationRecord
+	for rows.Next() {
+		var valuation domain.ValuationRecord
+		if err := rows.Scan(&valuation.ID, &valuation.CompanyID, &valuation.CompanyName, &valuation.Valuation, &valuation.SharePrice, &valuation.AsOfDate); err != nil {
+			return nil, err
+		}
+		valuations = append(valuations, valuation)
+	}
+	return valuations, rows.Err()
+}
+
+func (s *Store) CompanyValuations(companyID int64) ([]domain.ValuationRecord, error) {
+	rows, err := s.db.Query(`SELECT v.id, v.company_id, c.name, v.valuation, v.share_price, v.as_of_date FROM valuations v JOIN companies c ON c.id = v.company_id WHERE v.company_id = ? ORDER BY v.as_of_date ASC, v.id ASC`, companyID)
 	if err != nil {
 		return nil, err
 	}

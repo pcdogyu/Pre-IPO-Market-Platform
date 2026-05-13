@@ -105,6 +105,8 @@ bash scripts/uninstall-ubuntu-service.sh
 SERVICE_NAME=preipo-market ADDR=:8081 APP_DIR=/opt/preipo-market-platform bash scripts/install-ubuntu-service.sh
 ```
 
+管理员登录后，页面右上角会显示“升级”按钮。该按钮会调用服务器上的 `upgrade.sh`，自动拉取最新代码、测试、构建并重启 `preipo-market` 服务。默认脚本路径为 `/opt/Pre-IPO-Market-Platform/upgrade.sh`，也可以通过 systemd 环境变量 `PREIPO_UPGRADE_SCRIPT` 覆盖。
+
 ### 演示账号
 
 所有演示账号密码均为：

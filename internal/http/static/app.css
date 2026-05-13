@@ -23,6 +23,8 @@ button:hover, .button:hover { background: var(--brand-dark); }
 button.small { min-height: 32px; padding: 6px 10px; font-size: 13px; }
 button.danger { background: var(--danger); }
 button.danger:hover { background: #7a271a; }
+button.nav-button { min-height: 0; padding: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; }
+button.nav-button:hover { background: transparent; color: var(--ink); }
 input, select { width: 100%; min-height: 40px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: white; color: var(--ink); }
 label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
 table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -36,6 +38,7 @@ tr:last-child td { border-bottom: 0; }
 .topbar nav a, .session a { color: var(--muted); font-weight: 700; font-size: 14px; }
 .topbar nav a:hover, .session a:hover { color: var(--ink); }
 .session { display: flex; gap: 12px; align-items: center; }
+.upgrade-form { margin: 0; display: inline-flex; }
 .container { width: min(1180px, calc(100% - 32px)); margin: 28px auto 60px; }
 .container.narrow { width: min(820px, calc(100% - 32px)); }
 .page-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
@@ -67,6 +70,13 @@ dd { margin: 0; font-weight: 800; }
 .list { display: grid; gap: 10px; }
 .row-link { display: flex; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
 .row-link span { color: var(--muted); }
+.ticker-list { display: flex; flex-wrap: wrap; gap: 10px; max-height: 172px; overflow: auto; }
+.ticker-chip { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--line); background: #f9fafb; border-radius: 999px; padding: 7px 10px; font-size: 13px; font-weight: 800; }
+.ticker-chip span { color: var(--brand-dark); }
+.chart-panel { display: grid; gap: 16px; }
+.chart-panel svg { width: 100%; height: auto; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+.chart-axis { stroke: #c8d0dc; stroke-width: 1; }
+.chart-line { fill: none; stroke: var(--brand); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .alert { padding: 12px 14px; background: #fff4ed; color: var(--danger); border: 1px solid #ffcfb9; border-radius: 8px; margin-bottom: 16px; }
 .login-page { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #e8f3f1, #f8fafc 45%, #fff7ed); }
 .login-shell { width: min(440px, calc(100% - 32px)); }

@@ -17,7 +17,7 @@
       <a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>
       {{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}
     </nav>
-    <div class="session"><a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div>
+    <div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div>
   </header>
   <main class="container">
     <section class="page-head">

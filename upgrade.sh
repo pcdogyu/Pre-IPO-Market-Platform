@@ -51,6 +51,7 @@ go build -trimpath -ldflags "$LDFLAGS" -o "$TMP_DIR/preipo-market-platform" "$RO
 
 echo "Installing binary to $BIN_PATH..."
 sudo install -d -m 0755 "$APP_DIR"
+sudo install -d -m 0755 "$STATE_DIR"
 sudo install -m 0755 "$TMP_DIR/preipo-market-platform" "$BIN_PATH"
 
 echo "Writing systemd service $SERVICE_NAME..."
@@ -63,17 +64,14 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$APP_DIR
+Environment=PREIPO_UPGRADE_SCRIPT=$ROOT_DIR/upgrade.sh
 ExecStart=$BIN_PATH --addr $ADDR --db $DB_PATH
 Restart=on-failure
 RestartSec=5
-DynamicUser=yes
-StateDirectory=$(basename "$STATE_DIR")
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
+ReadWritePaths=$APP_DIR $STATE_DIR $ROOT_DIR
 
 [Install]
 WantedBy=multi-user.target

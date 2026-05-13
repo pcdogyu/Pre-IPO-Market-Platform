@@ -3,9 +3,9 @@ package buildinfo
 import "fmt"
 
 var (
-	commitDateTime = "unknown"
-	commitID       = "unknown"
-	branchName     = "unknown"
+	commitDateTime = "未知"
+	commitID       = "未知"
+	branchName     = "未知"
 )
 
 func FooterLabel() string {

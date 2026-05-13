@@ -10,11 +10,11 @@
       <form method="post" action="/admin/companies/create" class="panel stack">
         <h2>公司资产库</h2>
         <label>名称<input name="name" value="星河机器人" required></label>
-        <label>{{t .Lang "label.industry"}}<input name="industry" value="Industrial automation" required></label>
+        <label>{{t .Lang "label.industry"}}<input name="industry" value="工业自动化" required></label>
         <label>{{t .Lang "label.valuation"}}<input name="valuation" value="$1.4B" required></label>
         <label>{{t .Lang "label.round"}}<input name="funding_round" value="Series C"></label>
         <label>{{t .Lang "label.share_price"}}<input name="share_price" type="number" min="0" step="0.01" value="22.50"></label>
-        <label>{{t .Lang "label.status"}}<select name="tradable_status"><option value="tradable">tradable</option><option value="limited">limited</option></select></label>
+        <label>{{t .Lang "label.status"}}<select name="tradable_status"><option value="tradable">可交易</option><option value="limited">受限</option></select></label>
         <label>{{t .Lang "label.transfer_restrictions"}}<input name="transfer_restrictions" value="优先购买权 + 公司同意"></label>
         <label>描述<input name="description" value="由管理员创建的 Pre-IPO 公司资产。"></label>
         <button>{{t .Lang "form.submit"}}</button>

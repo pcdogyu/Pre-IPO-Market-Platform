@@ -95,6 +95,7 @@ Code by Yuhao@jiansutech.com - yyyy-mm-dd hh:mm - commitid - branch
 sudo systemctl status preipo-market
 sudo journalctl -u preipo-market -f
 sudo systemctl restart preipo-market
+bash upgrade.sh
 bash scripts/uninstall-ubuntu-service.sh
 ```
 

@@ -358,9 +358,9 @@ func (s *Store) SeedDemoData() error {
 		sharePrice                        float64
 		description, status, restrictions string
 	}{
-		{"神经桥 AI", "人工智能基础设施", "$4.8B", "Series D", 42.50, "企业级 AI 工作流平台，近两年收入高速增长。", "tradable", "优先购买权 + 董事会批准"},
-		{"赫利欧电网", "新能源", "$2.1B", "Series C", 18.75, "分布式储能与电网调度软件公司。", "tradable", "需公司同意；30 天优先购买权窗口"},
-		{"量子支付", "金融科技", "$6.3B", "Series E", 64.20, "跨境支付和企业财资管理平台。", "limited", "仅限已批准机构买方转让"},
+		{"神经桥智能", "人工智能基础设施", "$4.8B", "D轮", 42.50, "企业级智能工作流平台，近两年收入高速增长。", "tradable", "优先购买权 + 董事会批准"},
+		{"赫利欧电网", "新能源", "$2.1B", "C轮", 18.75, "分布式储能与电网调度软件公司。", "tradable", "需公司同意；30 天优先购买权窗口"},
+		{"量子支付", "金融科技", "$6.3B", "E轮", 64.20, "跨境支付和企业财资管理平台。", "limited", "仅限已批准机构买方转让"},
 	}
 	for _, c := range companies {
 		if _, err := tx.Exec(`INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -384,7 +384,7 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES
-		(2, '赫利欧电网 SPV 一期', 'spv', '单一公司 SPV，提供季度报告', 25000, 5000000, '2% 管理费，门槛收益后 10% 业绩分成', 'open'),
+		(2, '赫利欧电网专项载体一期', 'spv', '单一公司专项载体，提供季度报告', 25000, 5000000, '2% 管理费，门槛收益后 10% 业绩分成', 'open'),
 		(1, '神经桥成长组合', 'fund_basket', '多公司成长组合，按比例分配份额', 50000, 8000000, '1.5% 年度管理费', 'open'),
 		(3, '量子支付直接转让', 'direct_secondary', '面向已批准买方的协商式股份转让', 100000, 3000000, '1% 交易费', 'open')`); err != nil {
 		return err
@@ -393,12 +393,12 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES
-		(1, 'Subscription Agreement', 'sent', '', '演示 SPV 认购协议已发送签署'),
-		(1, 'Operating Agreement', 'drafted', '', 'SPV 运营协议文件包')`); err != nil {
+		(1, 'Subscription Agreement', 'sent', '', '演示专项载体认购协议已发送签署'),
+		(1, 'Operating Agreement', 'drafted', '', '专项载体运营协议文件包')`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO holdings (user_id, company_name, source_type, cost, status) VALUES
-		(2, '神经桥 AI', 'secondary', 33600, 'matched'),
+		(2, '神经桥智能', 'secondary', 33600, 'matched'),
 		(2, '赫利欧电网', 'spv', 30000, 'admin_confirmed')`); err != nil {
 		return err
 	}
@@ -413,8 +413,8 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES
-		(1, '赫利欧电网 SPV 一期', 'Delaware', '演示管理人 GP', 'Class A', 500000, 30000),
-		(2, '神经桥成长组合 LP', 'Cayman Islands', '演示管理人 GP', 'Limited Partner Units', 800000, 0)`); err != nil {
+		(1, '赫利欧电网专项载体一期', 'Delaware', '演示管理人', 'Class A', 500000, 30000),
+		(2, '神经桥成长组合基金', 'Cayman Islands', '演示管理人', 'Limited Partner Units', 800000, 0)`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO execution_documents (transaction_id, document_type, status, signed_at, note) VALUES
@@ -428,7 +428,7 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO escrow_payments (transaction_id, amount, status, reference, note, created_at, released_at) VALUES
-		(1, 33600, 'instruction_sent', 'ESCROW-DEMO-001', '已为撮合交易准备付款指令。', ?, '')`, time.Now().Format(time.RFC3339)); err != nil {
+		(1, 33600, 'instruction_sent', '托管演示001', '已为撮合交易准备付款指令。', ?, '')`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO valuations (company_id, valuation, share_price, as_of_date) VALUES
@@ -447,7 +447,7 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO capital_calls (user_id, deal_id, amount, due_date, status, notice, created_at) VALUES
-		(2, 1, 5000, '2026-07-15', 'pending', '赫利欧电网 SPV 一期首次资本调用。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(2, 1, 5000, '2026-07-15', 'pending', '赫利欧电网专项载体一期首次资本调用。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO investor_reports (user_id, report_type, title, period, status) VALUES
@@ -466,11 +466,11 @@ func (s *Store) SeedDemoData() error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO support_tickets (user_id, status, subject, note, created_at) VALUES
-		(2, 'open', '认购文件问题', '投资人询问 SPV 运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(2, 'open', '认购文件问题', '投资人询问专项载体运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO support_ticket_messages (ticket_id, actor_id, message, created_at) VALUES
-		(1, 2, '投资人询问 SPV 运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
+		(1, 2, '投资人询问专项载体运营协议摘要。', ?)`, time.Now().Format(time.RFC3339)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO audit_logs (actor_id, action, object_type, object_id, note, created_at) VALUES (1, 'seed', 'system', 1, '演示数据已初始化', ?)`, time.Now().Format(time.RFC3339)); err != nil {
@@ -489,7 +489,7 @@ func (s *Store) ensureDemoDepth() error {
 		return err
 	}
 	industries := []string{"人工智能", "金融科技", "企业软件", "新能源", "生物科技", "半导体", "机器人", "网络安全", "数据基础设施", "消费科技"}
-	rounds := []string{"Series B", "Series C", "Series D", "Series E", "Pre-IPO"}
+	rounds := []string{"B轮", "C轮", "D轮", "E轮", "Pre-IPO轮"}
 	for i := companyCount + 1; i <= 100; i++ {
 		industry := industries[(i-1)%len(industries)]
 		round := rounds[(i-1)%len(rounds)]
@@ -1536,8 +1536,8 @@ func (s *Store) CreateDeal(ctx context.Context, actorID int64, deal domain.Deal)
 	}
 	id, _ := res.LastInsertId()
 	if deal.DealType == "spv" || deal.DealType == "fund_basket" {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES (?, ?, 'Delaware', '演示管理人 GP', 'Class A', ?, 0)`,
-			id, deal.Name+" Vehicle", int64(deal.TargetSize/100)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO spv_vehicles (deal_id, name, jurisdiction, manager, share_class, total_units, issued_units) VALUES (?, ?, 'Delaware', '演示管理人', 'Class A', ?, 0)`,
+			id, deal.Name+" 载体", int64(deal.TargetSize/100)); err != nil {
 			return err
 		}
 	}
@@ -1670,10 +1670,10 @@ func (s *Store) CreateSubscription(ctx context.Context, investorID, dealID int64
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES (?, 'Subscription Agreement', ?, '', 'Auto-generated subscription agreement')`, id, string(domain.DocumentDrafted)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO subscription_documents (subscription_id, document_type, status, signed_at, note) VALUES (?, 'Subscription Agreement', ?, '', '自动生成的认购协议')`, id, string(domain.DocumentDrafted)); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, investorID, "create_subscription", "subscription", id, "investor submitted SPV subscription"); err != nil {
+	if err := insertAudit(ctx, tx, investorID, "create_subscription", "subscription", id, "投资人提交专项载体认购"); err != nil {
 		return err
 	}
 	return tx.Commit()

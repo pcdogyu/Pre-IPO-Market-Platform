@@ -88,7 +88,7 @@ func TestAdvanceTransactionCreatesSettledHolding(t *testing.T) {
 	}
 	var settled bool
 	for _, holding := range holdings {
-		if holding.CompanyName == "神经桥 AI" && holding.Status == string(domain.StageSettled) {
+		if holding.CompanyName == "神经桥智能" && holding.Status == string(domain.StageSettled) {
 			settled = true
 		}
 	}
@@ -633,7 +633,7 @@ func TestPortfolioValuationSummary(t *testing.T) {
 	}
 	var foundDirect bool
 	for _, line := range lines {
-		if line.Label == "神经桥 AI" && line.SourceType == "secondary" && line.CurrentValue == 36000 {
+		if line.Label == "神经桥智能" && line.SourceType == "secondary" && line.CurrentValue == 36000 {
 			foundDirect = true
 		}
 	}
@@ -1180,7 +1180,7 @@ func TestCompanyUpdateWorkflow(t *testing.T) {
 	}
 	var found bool
 	for _, item := range updates {
-		if item.Title == update.Title && item.CompanyName == "神经桥 AI" {
+		if item.Title == update.Title && item.CompanyName == "神经桥智能" {
 			found = true
 		}
 	}

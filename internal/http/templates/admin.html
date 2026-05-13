@@ -12,7 +12,7 @@
         <label>名称<input name="name" value="星河机器人" required></label>
         <label>{{t .Lang "label.industry"}}<input name="industry" value="工业自动化" required></label>
         <label>{{t .Lang "label.valuation"}}<input name="valuation" value="$1.4B" required></label>
-        <label>{{t .Lang "label.round"}}<input name="funding_round" value="Series C"></label>
+        <label>{{t .Lang "label.round"}}<input name="funding_round" value="C轮"></label>
         <label>{{t .Lang "label.share_price"}}<input name="share_price" type="number" min="0" step="0.01" value="22.50"></label>
         <label>{{t .Lang "label.status"}}<select name="tradable_status"><option value="tradable">可交易</option><option value="limited">受限</option></select></label>
         <label>{{t .Lang "label.transfer_restrictions"}}<input name="transfer_restrictions" value="优先购买权 + 公司同意"></label>
@@ -22,9 +22,9 @@
       <form method="post" action="/admin/deals/create" class="panel stack">
         <h2>项目创建</h2>
         <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-        <label>名称<input name="name" value="新增长 SPV" required></label>
-        <label>项目类型<select name="deal_type"><option value="spv">SPV</option><option value="fund_basket">基金组合</option><option value="direct_secondary">直接二级转让</option></select></label>
-        <label>结构<input name="structure" value="单一公司 SPV，按比例分配份额"></label>
+        <label>名称<input name="name" value="新增长载体" required></label>
+        <label>项目类型<select name="deal_type"><option value="spv">专项载体</option><option value="fund_basket">基金组合</option><option value="direct_secondary">直接二级转让</option></select></label>
+        <label>结构<input name="structure" value="单一公司专项载体，按比例分配份额"></label>
         <label>{{t .Lang "label.minimum"}}<input name="min_subscription" type="number" min="1" value="25000"></label>
         <label>{{t .Lang "label.target"}}<input name="target_size" type="number" min="1" value="5000000"></label>
         <label>{{t .Lang "label.fees"}}<input name="fee_description" value="2% 管理费"></label>
@@ -83,7 +83,7 @@
       <form method="post" action="/admin/subscription-documents/create" class="panel stack">
         <h2>{{t .Lang "label.subscription_documents"}}</h2>
         <label>{{t .Lang "label.subscription"}}<select name="subscription_id">{{range .Subscriptions}}{{if not (terminalSub .Status)}}<option value="{{.ID}}">#{{.ID}} {{.DealName}} · {{.InvestorName}}</option>{{end}}{{end}}</select></label>
-        <label>文件类型<select name="document_type"><option value="Subscription Agreement">认购协议</option><option value="Operating Agreement">运营协议</option><option value="Risk Disclosure">风险揭示书</option><option value="W-9 / Tax Form">W-9 / 税务表格</option></select></label>
+        <label>文件类型<select name="document_type"><option value="Subscription Agreement">认购协议</option><option value="Operating Agreement">运营协议</option><option value="Risk Disclosure">风险揭示书</option><option value="W-9 / Tax Form">税务表格</option></select></label>
         <label>{{t .Lang "label.note"}}<input name="note" value="认购文件包备注"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
@@ -126,7 +126,7 @@
         <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
         <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="0.01" step="0.01" value="33600" required></label>
         <label>{{t .Lang "label.status"}}<select name="status"><option value="instruction_sent">指令已发送</option><option value="funded">已出资</option><option value="released">已释放</option></select></label>
-        <label>{{t .Lang "label.reference"}}<input name="reference" value="ESCROW-REF-001" required></label>
+        <label>{{t .Lang "label.reference"}}<input name="reference" value="托管参考001" required></label>
         <label>{{t .Lang "label.note"}}<input name="note" value="托管指令已记录"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>

@@ -1706,7 +1706,7 @@ func (s *Store) CreateNegotiation(ctx context.Context, actor domain.User, transa
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if err := insertAudit(ctx, tx, actor.ID, "create_negotiation", "negotiation", id, fmt.Sprintf("transaction #%d offer %.2f x %d", transactionID, offerPrice, shares)); err != nil {
+	if err := insertAudit(ctx, tx, actor.ID, "create_negotiation", "negotiation", id, fmt.Sprintf("交易 #%d 报价 %.2f，股份数 %d", transactionID, offerPrice, shares)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2330,7 +2330,7 @@ func (s *Store) CreateExecutionDocument(ctx context.Context, actorID, transactio
 	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET document_status = ? WHERE id = ?`, string(domain.DocumentDrafted), transactionID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "create_execution_document", "execution_document", id, fmt.Sprintf("transaction #%d %s", transactionID, documentType)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "create_execution_document", "execution_document", id, fmt.Sprintf("交易 #%d %s", transactionID, zhText(documentType))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2426,7 +2426,7 @@ func (s *Store) CreateExecutionApproval(ctx context.Context, actorID int64, appr
 	if err := updateTransactionApprovalStatus(ctx, tx, approval.TransactionID, approval.ApprovalType, "pending"); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "create_execution_approval", "execution_approval", id, fmt.Sprintf("transaction #%d %s", approval.TransactionID, approval.ApprovalType)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "create_execution_approval", "execution_approval", id, fmt.Sprintf("交易 #%d %s", approval.TransactionID, zhText(approval.ApprovalType))); err != nil {
 		return err
 	}
 	body := fmt.Sprintf("%s的%s审批已进入待处理", companyName, zhText(approval.ApprovalType))
@@ -2568,7 +2568,7 @@ func (s *Store) CreateEscrowPayment(ctx context.Context, actorID int64, payment 
 	if _, err := tx.ExecContext(ctx, `UPDATE transactions SET escrow_status = ? WHERE id = ?`, string(payment.Status), payment.TransactionID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "create_escrow_payment", "escrow_payment", id, fmt.Sprintf("transaction #%d amount %.2f", payment.TransactionID, payment.Amount)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "create_escrow_payment", "escrow_payment", id, fmt.Sprintf("交易 #%d 金额 %.2f", payment.TransactionID, payment.Amount)); err != nil {
 		return err
 	}
 	body := fmt.Sprintf("%s托管付款%.2f当前为%s", companyName, payment.Amount, zhText(payment.Status))
@@ -3029,7 +3029,7 @@ func (s *Store) MarkNotificationRead(ctx context.Context, userID, notificationID
 	if affected == 0 {
 		return sql.ErrNoRows
 	}
-	if err := insertAudit(ctx, tx, userID, "mark_notification_read", "notification", notificationID, "status -> read"); err != nil {
+	if err := insertAudit(ctx, tx, userID, "mark_notification_read", "notification", notificationID, "状态已更新为已读"); err != nil {
 		return err
 	}
 	return tx.Commit()

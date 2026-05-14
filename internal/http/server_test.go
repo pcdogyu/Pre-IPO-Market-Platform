@@ -410,8 +410,8 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 		{"/admin/valuations/create", url.Values{"company_id": {"1"}, "valuation": {"$5.0B"}, "share_price": {"45"}, "as_of_date": {"2026-06-30"}}},
 		{"/admin/exits/create", url.Values{"company_id": {"1"}, "event_type": {"Tender offer"}, "status": {"confirmed"}, "expected_date": {"2026-Q4"}, "description": {"Company sponsored liquidity"}}},
 		{"/admin/distributions/create", url.Values{"user_id": {"2"}, "amount": {"1200"}, "status": {"pending"}, "tax_document": {"K-1 draft"}}},
-		{"/admin/reports/create", url.Values{"user_id": {"2"}, "report_type": {"portfolio"}, "title": {"Q2 Report"}, "period": {"2026-Q2"}, "status": {"available"}}},
-		{"/admin/risks/create", url.Values{"severity": {"high"}, "subject": {"Concentration limit"}, "note": {"Review exposure"}}},
+		{"/admin/reports/create", url.Values{"user_id": {"2"}, "report_type": {"portfolio"}, "title": {"二季度组合报告"}, "period": {"2026-Q2"}, "status": {"available"}}},
+		{"/admin/risks/create", url.Values{"severity": {"high"}, "subject": {"集中度限制"}, "note": {"复核敞口"}}},
 	}
 	for _, tc := range cases {
 		req := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.form.Encode()))
@@ -438,7 +438,7 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 func TestAdminCanAdvanceDistribution(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "admin")
-	form := url.Values{"user_id": {"2"}, "amount": {"1500"}, "status": {"pending"}, "tax_document": {"K-1 ready"}}
+	form := url.Values{"user_id": {"2"}, "amount": {"1500"}, "status": {"pending"}, "tax_document": {"K-1 已准备"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/distributions/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
@@ -674,7 +674,7 @@ func TestAdminCanManageExecutionApprovals(t *testing.T) {
 func TestAdminCanManageSubscriptionDocuments(t *testing.T) {
 	app := testApp(t)
 	adminCookie := loginCookie(t, app, "admin")
-	form := url.Values{"subscription_id": {"1"}, "document_type": {"Risk Disclosure"}, "note": {"Risk disclosure package"}}
+	form := url.Values{"subscription_id": {"1"}, "document_type": {"Risk Disclosure"}, "note": {"风险揭示文件包"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/subscription-documents/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(adminCookie)

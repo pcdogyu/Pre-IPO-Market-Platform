@@ -16,6 +16,9 @@
         <label>{{t .Lang "label.share_price"}}<input name="share_price" type="number" min="0" step="0.01" value="22.50"></label>
         <label>{{t .Lang "label.status"}}<select name="tradable_status"><option value="tradable">可交易</option><option value="limited">受限</option></select></label>
         <label>{{t .Lang "label.transfer_restrictions"}}<input name="transfer_restrictions" value="优先购买权 + 公司同意"></label>
+        <label>{{t .Lang "label.ipo_progress"}}<input name="ipo_progress" value="已进入审计和承销行接触阶段"></label>
+        <label>{{t .Lang "label.major_investors"}}<input name="investor_structure" value="红杉资本、战略产业投资人"></label>
+        <label>{{t .Lang "label.comparable_companies"}}<input name="comparable_companies" value="ServiceNow、Datadog、Snowflake"></label>
         <label>描述<input name="description" value="由管理员创建的 Pre-IPO 公司资产。"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
@@ -28,8 +31,32 @@
         <label>{{t .Lang "label.minimum"}}<input name="min_subscription" type="number" min="1" value="25000"></label>
         <label>{{t .Lang "label.target"}}<input name="target_size" type="number" min="1" value="5000000"></label>
         <label>{{t .Lang "label.fees"}}<input name="fee_description" value="2% 管理费"></label>
+        <label>{{t .Lang "label.eligibility"}}<input name="eligibility" value="已完成 KYC、AML 和合格投资人认证"></label>
+        <label>{{t .Lang "label.key_risks"}}<input name="key_risks" value="转让审批、估值波动、退出窗口不确定"></label>
+        <label>{{t .Lang "label.partner"}}<input name="partner_name" value="合作发行方演示"></label>
+        <label>{{t .Lang "label.document_status"}}<input name="document_status" value="认购协议和风险揭示书已准备"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
+    </section>
+    <section class="grid two">
+      <div>
+        <h2>{{t .Lang "label.intent_pool"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.company"}} / {{t .Lang "label.product_preference"}}</th><th>{{t .Lang "label.count"}}</th><th>{{t .Lang "label.total_amount"}}</th><th>{{t .Lang "label.acceptable_minimum"}}</th><th>{{t .Lang "label.kyc_willing"}}</th></tr></thead><tbody>{{range .IntentSummaries}}<tr><td>{{.Label}}</td><td>{{.IntentCount}}</td><td>{{money .TotalAmount}}</td><td>{{money .AvgTicket}}</td><td>{{.KYCWilling}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+      <div>
+        <h2>{{t .Lang "label.latest_intents"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.user"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.product_preference"}}</th><th>{{t .Lang "label.acceptable_lockup"}}</th></tr></thead><tbody>{{range .InvestmentIntents}}<tr><td>{{.UserName}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{.ProductPreference}}</td><td>{{.Lockup}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+    </section>
+    <section class="grid two">
+      <div>
+        <h2>{{t .Lang "label.liquidity_window"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.user"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.reference_range"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .LiquidityRequests}}<tr><td>{{.UserName}}</td><td>{{.CompanyName}}</td><td>{{statusLabel .Side $.Lang}}</td><td>{{money .Amount}}</td><td>{{money .SharePriceLow}} - {{money .SharePriceHigh}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+      <div class="panel">
+        <h2>{{t .Lang "label.mvp_evaluation"}}</h2>
+        <dl class="facts"><div><dt>RWA 链上凭证</dt><dd>仅做权益登记、白名单流转、结算记录验证</dd></div><div><dt>连续交易所</dt><dd>暂不建设，保留订单簿和撮合验证代码</dd></div><div><dt>后续判断</dt><dd>根据关注、意向、认购、流动性窗口数据决定是否进入中后期</dd></div></dl>
+      </div>
     </section>
     <section class="panel">
       <h2>创建撮合</h2>

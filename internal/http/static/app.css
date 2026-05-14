@@ -69,6 +69,11 @@ dd { margin: 0; font-weight: 800; }
 .inline-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
 .wide-inline { grid-template-columns: 0.7fr 1fr 1.4fr auto; margin-bottom: 12px; }
 .match-form { display: grid; grid-template-columns: 1.5fr 1.5fr 0.8fr 0.8fr auto; gap: 12px; align-items: end; }
+.filter-bar { display: grid; grid-template-columns: 1.6fr 1fr 1fr auto; gap: 12px; align-items: end; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.check-line { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.check-line input { width: auto; min-height: 0; }
+.liquidity-form { display: grid; grid-template-columns: 1.2fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1.4fr auto; gap: 12px; align-items: end; }
 .actions { display: flex; gap: 12px; margin-top: 24px; }
 .company-actions { align-items: center; flex-wrap: wrap; }
 .action-button { gap: 8px; min-width: 96px; }
@@ -122,6 +127,6 @@ dd { margin: 0; font-weight: 800; }
   .topbar { align-items: flex-start; flex-direction: column; padding: 16px; gap: 12px; }
   .metric-grid, .grid.two, .detail-grid, .cards, .facts.wide, .match-form, .chart-grid { grid-template-columns: 1fr; }
   .page-head { flex-direction: column; }
-  .inline-form, .wide-inline { grid-template-columns: 1fr; }
+  .inline-form, .wide-inline, .filter-bar, .form-grid, .liquidity-form { grid-template-columns: 1fr; }
   .upgrade-dialog-head { align-items: flex-start; flex-direction: column; gap: 6px; }
 }

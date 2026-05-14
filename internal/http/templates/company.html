@@ -6,8 +6,34 @@
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">{{.Company.Industry}}</p><h1>{{.Company.Name}}</h1></div><span class="badge">{{statusLabel .Company.TradableStatus .Lang}}</span></section>
     <p class="lead">{{.Company.Description}}</p>
-    <dl class="facts wide"><div><dt>{{t .Lang "label.valuation"}}</dt><dd>{{.Company.Valuation}}</dd></div><div><dt>{{t .Lang "label.share_price"}}</dt><dd>{{money .Company.SharePrice}}</dd></div><div><dt>{{t .Lang "label.round"}}</dt><dd>{{.Company.FundingRound}}</dd></div><div><dt>{{t .Lang "label.status"}}</dt><dd>{{statusLabel .Company.TradableStatus .Lang}}</dd></div><div><dt>{{t .Lang "label.transfer_restrictions"}}</dt><dd>{{.Company.TransferRestrictions}}</dd></div></dl>
+    <dl class="facts wide"><div><dt>{{t .Lang "label.valuation"}}</dt><dd>{{.Company.Valuation}}</dd></div><div><dt>{{t .Lang "label.share_price"}}</dt><dd>{{money .Company.SharePrice}}</dd></div><div><dt>{{t .Lang "label.round"}}</dt><dd>{{.Company.FundingRound}}</dd></div><div><dt>{{t .Lang "label.status"}}</dt><dd>{{statusLabel .Company.TradableStatus .Lang}}</dd></div><div><dt>{{t .Lang "label.heat_score"}}</dt><dd>{{.Company.HeatScore}}</dd></div><div><dt>{{t .Lang "label.data_confidence"}}</dt><dd>{{.Company.DataConfidence}}%</dd></div><div><dt>{{t .Lang "label.transfer_restrictions"}}</dt><dd>{{.Company.TransferRestrictions}}</dd></div><div><dt>{{t .Lang "label.ipo_progress"}}</dt><dd>{{.Company.IPOProgress}}</dd></div><div><dt>{{t .Lang "label.comparable_companies"}}</dt><dd>{{.Company.ComparableCompanies}}</dd></div></dl>
     <div class="actions company-actions"><a class="button action-button soft" href="/market/orders?company_id={{.Company.ID}}"><span class="action-icon">⇄</span>{{t .Lang "nav.market"}}</a><a class="button action-button soft" href="/deals?company_id={{.Company.ID}}"><span class="action-icon">◇</span>{{t .Lang "nav.deals"}}</a>{{if index .WatchlistMap .Company.ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.Company.ID}}"><button class="action-button active"><span class="action-icon">★</span>{{t .Lang "label.unwatch"}}</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.Company.ID}}"><button class="action-button soft"><span class="action-icon">☆</span>{{t .Lang "label.watch"}}</button></form>{{end}}</div>
+    <section class="grid two">
+      <div class="panel">
+        <h2>{{t .Lang "label.asset_profile"}}</h2>
+        <dl class="facts"><div><dt>{{t .Lang "label.major_investors"}}</dt><dd>{{.Company.InvestorStructure}}</dd></div><div><dt>{{t .Lang "label.ipo_progress"}}</dt><dd>{{.Company.IPOProgress}}</dd></div><div><dt>{{t .Lang "label.comparable_companies"}}</dt><dd>{{.Company.ComparableCompanies}}</dd></div></dl>
+      </div>
+      <form id="intent-form" method="post" action="/intents/create" class="panel stack">
+        <h2>{{t .Lang "label.register_intent"}}</h2>
+        <input type="hidden" name="company_id" value="{{.Company.ID}}">
+        <label>{{t .Lang "label.focus"}}<input name="focus" value="{{.Company.Industry}}" required></label>
+        <div class="form-grid"><label>{{t .Lang "label.intent_amount"}}<input name="amount" type="number" min="1" value="100000" required></label><label>{{t .Lang "label.acceptable_minimum"}}<input name="min_ticket" type="number" min="1" value="50000" required></label></div>
+        <div class="form-grid"><label>{{t .Lang "label.acceptable_lockup"}}<select name="lockup"><option>6个月</option><option selected>12个月</option><option>18个月</option><option>24个月</option></select></label><label>{{t .Lang "label.product_preference"}}<select name="product_preference"><option>单一标的认购</option><option selected>SPV 份额</option><option>主题篮子</option><option>收益权凭证</option></select></label></div>
+        <label>{{t .Lang "label.accept_structures"}}<select name="accept_structures"><option>接受 SPV 和收益权</option><option>仅接受 SPV</option><option>接受合成敞口</option><option>需要先看文件</option></select></label>
+        <label class="check-line"><input type="checkbox" name="kyc_willing" value="yes" checked>{{t .Lang "label.kyc_willing"}}</label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+    </section>
+    <section class="detail-grid">
+      <div>
+        <h2>{{t .Lang "label.funding_history"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.round"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.valuation"}}</th><th>{{t .Lang "label.major_investors"}}</th><th>{{t .Lang "label.date"}}</th></tr></thead><tbody>{{range .FundingRounds}}<tr><td>{{.RoundName}}</td><td>{{.Amount}}</td><td>{{.Valuation}}</td><td>{{.LeadInvestors}}</td><td>{{.AnnouncedAt}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+      <div>
+        <h2>{{t .Lang "label.key_risks"}}</h2>
+        <table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.severity"}}</th><th>{{t .Lang "label.summary"}}</th><th>{{t .Lang "label.mitigation"}}</th></tr></thead><tbody>{{range .CompanyRisks}}<tr><td>{{.RiskType}}</td><td>{{statusLabel .Severity $.Lang}}</td><td>{{.Summary}}</td><td>{{.Mitigation}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>
+      </div>
+    </section>
     <section>
       <h2>{{t .Lang "label.valuation_history"}}</h2>
       <div class="chart-panel">

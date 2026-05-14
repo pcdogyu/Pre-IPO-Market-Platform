@@ -96,6 +96,32 @@ type Company struct {
 	Description          string
 	TradableStatus       string
 	TransferRestrictions string
+	IPOProgress          string
+	InvestorStructure    string
+	ComparableCompanies  string
+	HeatScore            int
+	DataConfidence       int
+}
+
+type CompanyFundingRound struct {
+	ID            int64
+	CompanyID     int64
+	CompanyName   string
+	RoundName     string
+	Amount        string
+	Valuation     string
+	LeadInvestors string
+	AnnouncedAt   string
+}
+
+type CompanyRisk struct {
+	ID          int64
+	CompanyID   int64
+	CompanyName string
+	RiskType    string
+	Severity    string
+	Summary     string
+	Mitigation  string
 }
 
 type CompanyUpdate struct {
@@ -198,6 +224,51 @@ type Deal struct {
 	Status           string
 	SubscribedAmount float64
 	RemainingAmount  float64
+	Eligibility      string
+	KeyRisks         string
+	PartnerName      string
+	DocumentStatus   string
+}
+
+type InvestmentIntent struct {
+	ID                int64
+	UserID            int64
+	UserName          string
+	CompanyID         int64
+	CompanyName       string
+	Focus             string
+	Amount            float64
+	MinTicket         float64
+	Lockup            string
+	ProductPreference string
+	AcceptStructures  string
+	KYCWilling        bool
+	Status            string
+	CreatedAt         string
+}
+
+type IntentSummary struct {
+	Label       string
+	IntentCount int
+	TotalAmount float64
+	AvgTicket   float64
+	KYCWilling  int
+}
+
+type LiquidityRequest struct {
+	ID             int64
+	UserID         int64
+	UserName       string
+	CompanyID      int64
+	CompanyName    string
+	Side           string
+	Amount         float64
+	SharePriceLow  float64
+	SharePriceHigh float64
+	Window         string
+	Status         string
+	Note           string
+	CreatedAt      string
 }
 
 type Subscription struct {

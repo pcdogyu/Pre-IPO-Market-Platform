@@ -16,6 +16,20 @@
       <div class="section-head"><h2>{{t .Lang "label.hot_assets"}}</h2><span class="badge">{{t .Lang "label.market_popularity"}}</span></div>
       <div class="ticker-list">{{range .Companies}}<a href="/companies/{{.ID}}" class="ticker-chip">{{.Name}} <span>{{money .SharePrice}}</span></a>{{end}}</div>
     </section>
+    <section class="panel">
+      <div class="section-head"><h2>{{t .Lang "label.liquidity_window"}}</h2><span class="badge">{{t .Lang "label.whitelist_only"}}</span></div>
+      <p class="muted">{{t .Lang "text.liquidity_window"}}</p>
+      <form method="post" action="/market/liquidity" class="liquidity-form">
+        <label>{{t .Lang "label.company"}}<select name="company_id">{{range .Companies}}<option value="{{.ID}}" {{if eq .ID $.SelectedCompanyID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+        <label>{{t .Lang "label.type"}}<select name="side"><option value="buyer_indication">{{t .Lang "label.buyer_indication"}}</option><option value="transfer_request">{{t .Lang "label.transfer_request"}}</option></select></label>
+        <label>{{t .Lang "label.amount"}}<input name="amount" type="number" min="1" value="100000" required></label>
+        <label>{{t .Lang "label.reference_price_low"}}<input name="share_price_low" type="number" min="0.01" step="0.01" value="36.00" required></label>
+        <label>{{t .Lang "label.reference_price_high"}}<input name="share_price_high" type="number" min="0.01" step="0.01" value="42.00" required></label>
+        <label>{{t .Lang "label.window"}}<input name="window" value="2026-Q3 季度窗口"></label>
+        <label>{{t .Lang "label.note"}}<input name="note" value="仅登记白名单流动性意向，不承诺成交。"></label>
+        <button>{{t .Lang "form.submit"}}</button>
+      </form>
+    </section>
     <section class="grid two">
       {{if canBuy .User}}
       <form method="post" action="/orders/buy-interest" class="panel stack">
@@ -41,6 +55,7 @@
       <div><h2>{{t .Lang "label.buy_interests"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.price"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>{{range .BuyInterests}}<tr><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{money .TargetPrice}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if and (eq .Status "interest_submitted") (eq .InvestorID $.User.ID)}}<form method="post" action="/orders/buy-interest/cancel"><input type="hidden" name="interest_id" value="{{.ID}}"><button class="small danger">{{t $.Lang "label.cancel"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
     </section>
     <section><h2>{{t .Lang "label.transactions"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.buyer"}}</th><th>{{t .Lang "label.seller"}}</th><th>{{t .Lang "label.shares"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.escrow"}}</th></tr></thead><tbody>{{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{.BuyerName}}</td><td>{{.SellerName}}</td><td>{{.Shares}}</td><td>{{statusLabel .Stage $.Lang}}</td><td>{{statusLabel .EscrowStatus $.Lang}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
+    <section><h2>{{t .Lang "label.liquidity_requests"}}</h2><table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.reference_range"}}</th><th>{{t .Lang "label.window"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .LiquidityRequests}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Side $.Lang}}</td><td>{{money .Amount}}</td><td>{{money .SharePriceLow}} - {{money .SharePriceHigh}}</td><td>{{.Window}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section>
       <h2>{{t .Lang "label.escrow_payments"}}</h2>
       <table><thead><tr><th>{{t .Lang "label.transaction"}}</th><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.reference"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .EscrowPayments}}<tr><td>#{{.TransactionID}}</td><td>{{.CompanyName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.Reference}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -61,6 +62,11 @@ type pageData struct {
 	ExitEvents        []domain.ExitEvent
 	Distributions     []domain.Distribution
 	CapitalCalls      []domain.CapitalCall
+	FundingRounds     []domain.CompanyFundingRound
+	CompanyRisks      []domain.CompanyRisk
+	InvestmentIntents []domain.InvestmentIntent
+	IntentSummaries   []domain.IntentSummary
+	LiquidityRequests []domain.LiquidityRequest
 	CompanyUpdates    []domain.CompanyUpdate
 	FinancialReports  []domain.CompanyFinancialReport
 	Reports           []domain.InvestorReport
@@ -78,6 +84,10 @@ type pageData struct {
 	PageLinks         []paginationLink
 	PrevPageURL       string
 	NextPageURL       string
+	Industries        []string
+	SearchQuery       string
+	SelectedIndustry  string
+	Sort              string
 }
 
 type paginationLink struct {
@@ -130,7 +140,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/companies/", s.requireAuth(s.companyDetail))
 	mux.HandleFunc("/watchlist/add", s.requireAuth(s.addWatchlist))
 	mux.HandleFunc("/watchlist/remove", s.requireAuth(s.removeWatchlist))
+	mux.HandleFunc("/intents/create", s.requireAuth(s.createInvestmentIntent))
 	mux.HandleFunc("/market/orders", s.requireAuth(s.market))
+	mux.HandleFunc("/market/liquidity", s.requireAuth(s.createLiquidityRequest))
 	mux.HandleFunc("/orders/sell/cancel", s.requireAuth(s.cancelSellOrder))
 	mux.HandleFunc("/orders/sell", s.requireAuth(s.createSellOrder))
 	mux.HandleFunc("/orders/buy-interest/cancel", s.requireAuth(s.cancelBuyInterest))
@@ -342,7 +354,12 @@ func (s *Server) markAllNotificationsRead(w http.ResponseWriter, r *http.Request
 func (s *Server) companies(w http.ResponseWriter, r *http.Request, user domain.User) {
 	companies, err := s.store.Companies()
 	watched, _ := s.store.WatchlistMap(user.ID)
-	data := pageData{Title: "Companies", User: user, Lang: user.Language, Companies: companies, WatchlistMap: watched}
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	industry := strings.TrimSpace(r.URL.Query().Get("industry"))
+	sortBy := strings.TrimSpace(r.URL.Query().Get("sort"))
+	industries := companyIndustries(companies)
+	companies = filterAndSortCompanies(companies, q, industry, sortBy)
+	data := pageData{Title: "Companies", User: user, Lang: user.Language, Companies: companies, WatchlistMap: watched, Industries: industries, SearchQuery: q, SelectedIndustry: industry, Sort: sortBy}
 	if err != nil {
 		data.Error = err.Error()
 	}
@@ -368,10 +385,19 @@ func (s *Server) createCompany(w http.ResponseWriter, r *http.Request, user doma
 		Description:          r.FormValue("description"),
 		TradableStatus:       r.FormValue("tradable_status"),
 		TransferRestrictions: r.FormValue("transfer_restrictions"),
+		IPOProgress:          r.FormValue("ipo_progress"),
+		InvestorStructure:    r.FormValue("investor_structure"),
+		ComparableCompanies:  r.FormValue("comparable_companies"),
 	}
 	if company.Name == "" || company.Industry == "" || company.Valuation == "" {
 		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
 		return
+	}
+	if company.HeatScore == 0 {
+		company.HeatScore = 70
+	}
+	if company.DataConfidence == 0 {
+		company.DataConfidence = 75
 	}
 	if err := s.store.CreateCompany(r.Context(), user.ID, company); err != nil {
 		http.Redirect(w, r, "/admin?error="+urlSafe(err.Error()), http.StatusSeeOther)
@@ -394,8 +420,10 @@ func (s *Server) companyDetail(w http.ResponseWriter, r *http.Request, user doma
 	updates, _ := s.store.CompanyUpdates(company.ID, 10)
 	financialReports, _ := s.store.CompanyFinancialReports(company.ID, 9)
 	valuations, _ := s.store.CompanyValuations(company.ID)
+	fundingRounds, _ := s.store.CompanyFundingRounds(company.ID)
+	risks, _ := s.store.CompanyRisks(company.ID)
 	watched, _ := s.store.WatchlistMap(user.ID)
-	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, FinancialReports: financialReports, Valuations: valuations, WatchlistMap: watched})
+	s.render(w, r, "company.html", pageData{Title: company.Name, User: user, Lang: user.Language, Company: company, CompanyUpdates: updates, FinancialReports: financialReports, Valuations: valuations, FundingRounds: fundingRounds, CompanyRisks: risks, WatchlistMap: watched})
 }
 
 func (s *Server) addWatchlist(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -428,6 +456,35 @@ func (s *Server) changeWatchlist(w http.ResponseWriter, r *http.Request, user do
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
+func (s *Server) createInvestmentIntent(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/companies?error=form", http.StatusSeeOther)
+		return
+	}
+	companyID, _ := strconv.ParseInt(r.FormValue("company_id"), 10, 64)
+	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
+	minTicket, _ := strconv.ParseFloat(r.FormValue("min_ticket"), 64)
+	intent := domain.InvestmentIntent{
+		CompanyID:         companyID,
+		Focus:             strings.TrimSpace(r.FormValue("focus")),
+		Amount:            amount,
+		MinTicket:         minTicket,
+		Lockup:            strings.TrimSpace(r.FormValue("lockup")),
+		ProductPreference: strings.TrimSpace(r.FormValue("product_preference")),
+		AcceptStructures:  strings.TrimSpace(r.FormValue("accept_structures")),
+		KYCWilling:        r.FormValue("kyc_willing") == "yes",
+	}
+	if err := s.store.CreateInvestmentIntent(r.Context(), user.ID, intent); err != nil {
+		http.Redirect(w, r, fmt.Sprintf("/companies/%d?error=%s", companyID, urlSafe(err.Error())), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/companies/%d?intent=submitted#intent-form", companyID), http.StatusSeeOther)
+}
+
 func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User) {
 	companies, _ := s.store.Companies()
 	sellOrders, _ := s.store.SellOrders(user)
@@ -436,6 +493,7 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 	negotiations, _ := s.store.Negotiations(user)
 	approvals, _ := s.store.ExecutionApprovals(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
+	liquidityRequests, _ := s.store.LiquidityRequests(user)
 	selectedCompanyID, selectedCompany := selectedCompanyFromRequest(r, companies)
 	if selectedCompanyID > 0 {
 		sellOrders = filterSellOrdersByCompany(sellOrders, selectedCompanyID)
@@ -444,6 +502,7 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 		negotiations = filterNegotiationsByTransactions(negotiations, transactions)
 		approvals = filterApprovalsByTransactions(approvals, transactions)
 		escrowPayments = filterEscrowPaymentsByTransactions(escrowPayments, transactions)
+		liquidityRequests = filterLiquidityRequestsByCompany(liquidityRequests, selectedCompanyID)
 	}
 	stats := map[string]int{
 		"companies":    len(companies),
@@ -451,7 +510,43 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 		"buy_orders":   len(buyInterests),
 		"transactions": len(transactions),
 	}
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, Stats: stats, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, Error: r.URL.Query().Get("error")})
+}
+
+func (s *Server) createLiquidityRequest(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/market/orders?error=form", http.StatusSeeOther)
+		return
+	}
+	companyID, _ := strconv.ParseInt(r.FormValue("company_id"), 10, 64)
+	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
+	low, _ := strconv.ParseFloat(r.FormValue("share_price_low"), 64)
+	high, _ := strconv.ParseFloat(r.FormValue("share_price_high"), 64)
+	request := domain.LiquidityRequest{
+		CompanyID:      companyID,
+		Side:           strings.TrimSpace(r.FormValue("side")),
+		Amount:         amount,
+		SharePriceLow:  low,
+		SharePriceHigh: high,
+		Window:         strings.TrimSpace(r.FormValue("window")),
+		Note:           strings.TrimSpace(r.FormValue("note")),
+	}
+	if request.Window == "" {
+		request.Window = "2026-Q3 季度窗口"
+	}
+	if err := s.store.CreateLiquidityRequest(r.Context(), user.ID, request); err != nil {
+		http.Redirect(w, r, "/market/orders?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		return
+	}
+	redirect := "/market/orders"
+	if companyID > 0 {
+		redirect = fmt.Sprintf("/market/orders?company_id=%d", companyID)
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -609,6 +704,10 @@ func (s *Server) createDeal(w http.ResponseWriter, r *http.Request, user domain.
 		MinSubscription: minimum,
 		TargetSize:      target,
 		FeeDescription:  r.FormValue("fee_description"),
+		Eligibility:     r.FormValue("eligibility"),
+		KeyRisks:        r.FormValue("key_risks"),
+		PartnerName:     r.FormValue("partner_name"),
+		DocumentStatus:  r.FormValue("document_status"),
 	}
 	if deal.CompanyID <= 0 || deal.Name == "" || deal.DealType == "" || deal.MinSubscription <= 0 || deal.TargetSize <= 0 {
 		http.Redirect(w, r, "/admin?error=form", http.StatusSeeOther)
@@ -762,6 +861,9 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	exitEvents, _ := s.store.ExitEvents()
 	distributions, _ := s.store.Distributions(0)
 	capitalCalls, _ := s.store.CapitalCalls(user)
+	investmentIntents, _ := s.store.InvestmentIntents(user)
+	intentSummaries, _ := s.store.IntentSummaries()
+	liquidityRequests, _ := s.store.LiquidityRequests(user)
 	companyUpdates, _ := s.store.CompanyUpdates(0, 20)
 	reports, _ := s.store.Reports(0)
 	riskAlerts, _ := s.store.RiskAlerts()
@@ -769,7 +871,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request, user domain.User)
 	tickets, _ := s.store.SupportTickets(user.ID, true)
 	ticketMessages, _ := s.store.SupportTicketMessages(user, true)
 	logs, _ := s.store.AuditLogs(20)
-	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, CompanyUpdates: companyUpdates, Reports: reports, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "admin.html", pageData{Title: "Admin", User: user, Lang: user.Language, Users: users, Companies: companies, PendingUsers: pending, ComplianceReviews: complianceReviews, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Documents: documents, Approvals: approvals, EscrowPayments: escrowPayments, Valuations: valuations, ExitEvents: exitEvents, Distributions: distributions, CapitalCalls: capitalCalls, InvestmentIntents: investmentIntents, IntentSummaries: intentSummaries, LiquidityRequests: liquidityRequests, CompanyUpdates: companyUpdates, Reports: reports, RiskAlerts: riskAlerts, RiskActions: riskActions, Tickets: tickets, TicketMessages: ticketMessages, AuditLogs: logs, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) upgradeService(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -1498,12 +1600,67 @@ func filterEscrowPaymentsByTransactions(payments []domain.EscrowPayment, transac
 	return filtered
 }
 
+func filterLiquidityRequestsByCompany(requests []domain.LiquidityRequest, companyID int64) []domain.LiquidityRequest {
+	filtered := make([]domain.LiquidityRequest, 0, len(requests))
+	for _, request := range requests {
+		if request.CompanyID == companyID {
+			filtered = append(filtered, request)
+		}
+	}
+	return filtered
+}
+
 func transactionIDSet(transactions []domain.Transaction) map[int64]bool {
 	allowed := make(map[int64]bool, len(transactions))
 	for _, transaction := range transactions {
 		allowed[transaction.ID] = true
 	}
 	return allowed
+}
+
+func companyIndustries(companies []domain.Company) []string {
+	seen := map[string]bool{}
+	var industries []string
+	for _, company := range companies {
+		if company.Industry == "" || seen[company.Industry] {
+			continue
+		}
+		seen[company.Industry] = true
+		industries = append(industries, company.Industry)
+	}
+	sort.Strings(industries)
+	return industries
+}
+
+func filterAndSortCompanies(companies []domain.Company, q, industry, sortBy string) []domain.Company {
+	q = strings.ToLower(strings.TrimSpace(q))
+	filtered := make([]domain.Company, 0, len(companies))
+	for _, company := range companies {
+		if industry != "" && company.Industry != industry {
+			continue
+		}
+		haystack := strings.ToLower(company.Name + " " + company.Industry + " " + company.Description)
+		if q != "" && !strings.Contains(haystack, q) {
+			continue
+		}
+		filtered = append(filtered, company)
+	}
+	switch sortBy {
+	case "name":
+		sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].Name < filtered[j].Name })
+	case "valuation":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			return parseValuationBillions(filtered[i].Valuation) > parseValuationBillions(filtered[j].Valuation)
+		})
+	default:
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].HeatScore == filtered[j].HeatScore {
+				return filtered[i].ID < filtered[j].ID
+			}
+			return filtered[i].HeatScore > filtered[j].HeatScore
+		})
+	}
+	return filtered
 }
 
 func filterDealsByCompany(deals []domain.Deal, companyID int64) []domain.Deal {
@@ -1685,6 +1842,8 @@ func statusLabel(status any, lang ...string) string {
 		"spv":                           "专项载体",
 		"fund_basket":                   "基金组合",
 		"direct_secondary":              "直接二级转让",
+		"transfer_request":              "转让申请",
+		"buyer_indication":              "买方承接意向",
 		"portfolio":                     "投资组合",
 		"tax":                           "税务",
 		"capital_account":               "资本账户",

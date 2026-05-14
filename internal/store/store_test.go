@@ -462,6 +462,81 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	}
 }
 
+func TestAssetIntentAndLiquidityModels(t *testing.T) {
+	s := testStore(t)
+	company, err := s.Company(1)
+	if err != nil {
+		t.Fatalf("company: %v", err)
+	}
+	if company.IPOProgress == "" || company.InvestorStructure == "" || company.HeatScore == 0 || company.DataConfidence == 0 {
+		t.Fatalf("expected enriched asset fields, got %+v", company)
+	}
+	rounds, err := s.CompanyFundingRounds(company.ID)
+	if err != nil {
+		t.Fatalf("funding rounds: %v", err)
+	}
+	if len(rounds) < 4 {
+		t.Fatalf("funding rounds got %d, want at least 4", len(rounds))
+	}
+	risks, err := s.CompanyRisks(company.ID)
+	if err != nil {
+		t.Fatalf("company risks: %v", err)
+	}
+	if len(risks) < 4 {
+		t.Fatalf("company risks got %d, want at least 4", len(risks))
+	}
+
+	investor, err := s.Authenticate("investor", "demo123")
+	if err != nil {
+		t.Fatalf("authenticate investor: %v", err)
+	}
+	if err := s.CreateInvestmentIntent(context.Background(), investor.ID, domain.InvestmentIntent{
+		CompanyID:         company.ID,
+		Focus:             company.Industry,
+		Amount:            120000,
+		MinTicket:         50000,
+		Lockup:            "12个月",
+		ProductPreference: "SPV 份额",
+		AcceptStructures:  "接受 SPV 和收益权",
+		KYCWilling:        true,
+	}); err != nil {
+		t.Fatalf("create investment intent: %v", err)
+	}
+	intents, err := s.InvestmentIntents(investor)
+	if err != nil {
+		t.Fatalf("investment intents: %v", err)
+	}
+	if len(intents) == 0 || intents[0].CompanyName == "" {
+		t.Fatalf("expected investment intents with company names, got %+v", intents)
+	}
+	summaries, err := s.IntentSummaries()
+	if err != nil {
+		t.Fatalf("intent summaries: %v", err)
+	}
+	if len(summaries) == 0 || summaries[0].TotalAmount <= 0 {
+		t.Fatalf("expected intent summaries, got %+v", summaries)
+	}
+
+	if err := s.CreateLiquidityRequest(context.Background(), investor.ID, domain.LiquidityRequest{
+		CompanyID:      company.ID,
+		Side:           "buyer_indication",
+		Amount:         90000,
+		SharePriceLow:  36,
+		SharePriceHigh: 42,
+		Window:         "2026-Q3 季度窗口",
+		Note:           "测试意向",
+	}); err != nil {
+		t.Fatalf("create liquidity request: %v", err)
+	}
+	requests, err := s.LiquidityRequests(investor)
+	if err != nil {
+		t.Fatalf("liquidity requests: %v", err)
+	}
+	if len(requests) == 0 || requests[0].CompanyName == "" {
+		t.Fatalf("expected liquidity requests with company names, got %+v", requests)
+	}
+}
+
 func TestWatchlistWorkflow(t *testing.T) {
 	s := testStore(t)
 	admin, err := s.Authenticate("admin", "demo123")

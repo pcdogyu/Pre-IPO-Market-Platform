@@ -5,13 +5,19 @@
   <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
     <section class="page-head"><div><p class="eyebrow">{{t .Lang "label.company_universe"}}</p><h1>{{t .Lang "companies.title"}}</h1></div></section>
+    <form method="get" action="/companies" class="panel filter-bar">
+      <label>{{t .Lang "label.search"}}<input name="q" value="{{.SearchQuery}}" placeholder="{{t .Lang "label.search_placeholder"}}"></label>
+      <label>{{t .Lang "label.industry"}}<select name="industry"><option value="">{{t .Lang "label.all_industries"}}</option>{{range .Industries}}<option value="{{.}}" {{if eq . $.SelectedIndustry}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+      <label>{{t .Lang "label.sort"}}<select name="sort"><option value="heat" {{if or (eq .Sort "") (eq .Sort "heat")}}selected{{end}}>{{t .Lang "label.sort_heat"}}</option><option value="valuation" {{if eq .Sort "valuation"}}selected{{end}}>{{t .Lang "label.sort_valuation"}}</option><option value="name" {{if eq .Sort "name"}}selected{{end}}>{{t .Lang "label.sort_name"}}</option></select></label>
+      <button>{{t .Lang "form.submit"}}</button>
+    </form>
     <section class="cards">
       {{range .Companies}}
       <article class="card">
         <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{statusLabel .TradableStatus $.Lang}}</span></div>
         <p>{{.Description}}</p>
-        <dl class="facts"><div><dt>{{t $.Lang "label.industry"}}</dt><dd>{{.Industry}}</dd></div><div><dt>{{t $.Lang "label.valuation"}}</dt><dd>{{.Valuation}}</dd></div><div><dt>{{t $.Lang "label.share_price"}}</dt><dd>{{money .SharePrice}}</dd></div><div><dt>{{t $.Lang "label.round"}}</dt><dd>{{.FundingRound}}</dd></div><div><dt>{{t $.Lang "label.transfer_restrictions"}}</dt><dd>{{.TransferRestrictions}}</dd></div></dl>
-        <div class="actions"><a class="button secondary" href="/companies/{{.ID}}">{{t $.Lang "label.view"}}</a>{{if index $.WatchlistMap .ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.ID}}"><button class="secondary">{{t $.Lang "label.unwatch"}}</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.ID}}"><button>{{t $.Lang "label.watch"}}</button></form>{{end}}</div>
+        <dl class="facts"><div><dt>{{t $.Lang "label.industry"}}</dt><dd>{{.Industry}}</dd></div><div><dt>{{t $.Lang "label.valuation"}}</dt><dd>{{.Valuation}}</dd></div><div><dt>{{t $.Lang "label.heat_score"}}</dt><dd>{{.HeatScore}}</dd></div><div><dt>{{t $.Lang "label.data_confidence"}}</dt><dd>{{.DataConfidence}}%</dd></div><div><dt>{{t $.Lang "label.round"}}</dt><dd>{{.FundingRound}}</dd></div><div><dt>{{t $.Lang "label.transfer_restrictions"}}</dt><dd>{{.TransferRestrictions}}</dd></div></dl>
+        <div class="actions"><a class="button secondary" href="/companies/{{.ID}}">{{t $.Lang "label.view"}}</a><a class="button secondary" href="/companies/{{.ID}}#intent-form">{{t $.Lang "label.register_intent"}}</a>{{if index $.WatchlistMap .ID}}<form method="post" action="/watchlist/remove"><input type="hidden" name="company_id" value="{{.ID}}"><button class="secondary">{{t $.Lang "label.unwatch"}}</button></form>{{else}}<form method="post" action="/watchlist/add"><input type="hidden" name="company_id" value="{{.ID}}"><button>{{t $.Lang "label.watch"}}</button></form>{{end}}</div>
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,7 +77,31 @@ func (s *Store) Migrate() error {
 			share_price REAL NOT NULL DEFAULT 0,
 			description TEXT NOT NULL,
 			tradable_status TEXT NOT NULL,
-			transfer_restrictions TEXT NOT NULL DEFAULT ''
+			transfer_restrictions TEXT NOT NULL DEFAULT '',
+			ipo_progress TEXT NOT NULL DEFAULT '',
+			investor_structure TEXT NOT NULL DEFAULT '',
+			comparable_companies TEXT NOT NULL DEFAULT '',
+			heat_score INTEGER NOT NULL DEFAULT 0,
+			data_confidence INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE TABLE IF NOT EXISTS company_funding_rounds (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+			round_name TEXT NOT NULL,
+			amount TEXT NOT NULL,
+			valuation TEXT NOT NULL,
+			lead_investors TEXT NOT NULL,
+			announced_at TEXT NOT NULL,
+			UNIQUE(company_id, round_name)
+		)`,
+		`CREATE TABLE IF NOT EXISTS company_risks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+			risk_type TEXT NOT NULL,
+			severity TEXT NOT NULL,
+			summary TEXT NOT NULL,
+			mitigation TEXT NOT NULL,
+			UNIQUE(company_id, risk_type)
 		)`,
 		`CREATE TABLE IF NOT EXISTS company_updates (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,6 +148,19 @@ func (s *Store) Migrate() error {
 			target_price REAL NOT NULL,
 			status TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS liquidity_requests (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+			side TEXT NOT NULL,
+			amount REAL NOT NULL,
+			share_price_low REAL NOT NULL,
+			share_price_high REAL NOT NULL,
+			window TEXT NOT NULL,
+			status TEXT NOT NULL,
+			note TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS transactions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			buyer_id INTEGER NOT NULL REFERENCES users(id),
@@ -154,7 +192,25 @@ func (s *Store) Migrate() error {
 			min_subscription REAL NOT NULL,
 			target_size REAL NOT NULL,
 			fee_description TEXT NOT NULL,
-			status TEXT NOT NULL
+			status TEXT NOT NULL,
+			eligibility TEXT NOT NULL DEFAULT '',
+			key_risks TEXT NOT NULL DEFAULT '',
+			partner_name TEXT NOT NULL DEFAULT '',
+			document_status TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS investment_intents (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+			focus TEXT NOT NULL,
+			amount REAL NOT NULL,
+			min_ticket REAL NOT NULL,
+			lockup TEXT NOT NULL,
+			product_preference TEXT NOT NULL,
+			accept_structures TEXT NOT NULL,
+			kyc_willing INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			created_at TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS subscriptions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -317,12 +373,21 @@ func (s *Store) Migrate() error {
 		`ALTER TABLE users ADD COLUMN risk_rating TEXT NOT NULL DEFAULT 'medium'`,
 		`ALTER TABLE companies ADD COLUMN share_price REAL NOT NULL DEFAULT 0`,
 		`ALTER TABLE companies ADD COLUMN transfer_restrictions TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE companies ADD COLUMN ipo_progress TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE companies ADD COLUMN investor_structure TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE companies ADD COLUMN comparable_companies TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE companies ADD COLUMN heat_score INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE companies ADD COLUMN data_confidence INTEGER NOT NULL DEFAULT 0`,
 		`ALTER TABLE transactions ADD COLUMN document_status TEXT NOT NULL DEFAULT 'not_started'`,
 		`ALTER TABLE transactions ADD COLUMN rofr_status TEXT NOT NULL DEFAULT 'not_started'`,
 		`ALTER TABLE transactions ADD COLUMN company_approval_status TEXT NOT NULL DEFAULT 'not_started'`,
 		`ALTER TABLE transactions ADD COLUMN escrow_status TEXT NOT NULL DEFAULT 'not_started'`,
 		`ALTER TABLE deals ADD COLUMN deal_type TEXT NOT NULL DEFAULT 'spv'`,
 		`ALTER TABLE deals ADD COLUMN structure TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE deals ADD COLUMN eligibility TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE deals ADD COLUMN key_risks TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE deals ADD COLUMN partner_name TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE deals ADD COLUMN document_status TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE risk_alerts ADD COLUMN assigned_to INTEGER REFERENCES users(id)`,
 	} {
 		if _, err := s.db.Exec(migration); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
@@ -759,9 +824,21 @@ func (s *Store) ensureDemoDepth() error {
 	if err := s.ensureCoreDealIntroductions(); err != nil {
 		return err
 	}
+	if err := s.ensureDealDetails(); err != nil {
+		return err
+	}
 
 	companies, err := s.Companies()
 	if err != nil {
+		return err
+	}
+	if err := s.ensureAssetInformation(companies); err != nil {
+		return err
+	}
+	if err := s.ensureDemoIntents(companies); err != nil {
+		return err
+	}
+	if err := s.ensureDemoLiquidityRequests(companies); err != nil {
 		return err
 	}
 	dates := []string{"2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31", "2026-05-13"}
@@ -831,6 +908,173 @@ func (s *Store) ensureDemoDepth() error {
 		amount := float64(25000 + (i%12)*15000)
 		price := company.SharePrice * (0.95 + float64(i%6)*0.012)
 		if _, err := s.db.Exec(`INSERT INTO buy_interests (investor_id, company_id, amount, target_price, status) VALUES (2, ?, ?, ?, ?)`, company.ID, amount, price, string(domain.StageInterestSubmitted)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) ensureAssetInformation(companies []domain.Company) error {
+	investorGroups := []string{
+		"红杉资本、Andreessen Horowitz、Tiger Global、战略产业投资人",
+		"Founders Fund、Coatue、Thrive Capital、长期家族办公室",
+		"Benchmark、Lightspeed、General Catalyst、企业战略投资人",
+		"Index Ventures、Accel、DST Global、主权基金二级份额持有人",
+	}
+	comparables := []string{
+		"微软、Adobe、ServiceNow",
+		"Block、Adyen、Toast",
+		"Snowflake、Datadog、MongoDB",
+		"Tesla、Fluence、Enphase",
+		"Intuitive Surgical、Illumina、Moderna",
+	}
+	ipoProgress := []string{
+		"已完成多轮增长融资，管理层持续准备审计、治理和承销行沟通。",
+		"近期重点补齐收入质量、合规披露和二级转让审批流程，暂无确定上市时间表。",
+		"已有潜在承销行接触，仍需观察市场窗口、现金流和监管披露成熟度。",
+		"公司优先推进私募融资和战略合作，IPO 作为中期退出路径观察。",
+	}
+	rounds := []struct {
+		name   string
+		amount string
+		years  int
+	}{
+		{"B轮", "$80M", 4},
+		{"C轮", "$160M", 3},
+		{"D轮", "$320M", 2},
+		{"Pre-IPO轮", "$520M", 1},
+	}
+	riskTypes := []string{"转让限制", "估值不确定", "信息披露", "退出窗口"}
+	for _, company := range companies {
+		heat := 62 + int((company.ID*7)%36)
+		confidence := 68 + int((company.ID*5)%27)
+		if _, err := s.db.Exec(`UPDATE companies SET ipo_progress = ?, investor_structure = ?, comparable_companies = ?, heat_score = ?, data_confidence = ? WHERE id = ?`,
+			ipoProgress[int(company.ID)%len(ipoProgress)],
+			investorGroups[int(company.ID)%len(investorGroups)],
+			comparables[int(company.ID)%len(comparables)],
+			heat,
+			confidence,
+			company.ID,
+		); err != nil {
+			return err
+		}
+		for index, round := range rounds {
+			announcedAt := fmt.Sprintf("%d-0%d-15", time.Now().Year()-round.years, 3+index)
+			valuation := company.Valuation
+			if index < len(rounds)-1 {
+				valuation = fmt.Sprintf("$%.1fB", 0.6+float64((company.ID*int64(index+3))%80)/10)
+			}
+			if _, err := s.db.Exec(`INSERT OR IGNORE INTO company_funding_rounds (company_id, round_name, amount, valuation, lead_investors, announced_at) VALUES (?, ?, ?, ?, ?, ?)`,
+				company.ID, round.name, round.amount, valuation, investorGroups[(int(company.ID)+index)%len(investorGroups)], announcedAt); err != nil {
+				return err
+			}
+		}
+		for index, riskType := range riskTypes {
+			severity := "medium"
+			if (int(company.ID)+index)%5 == 0 {
+				severity = "high"
+			}
+			summary := fmt.Sprintf("%s风险：%s仍处于未上市阶段，交易需要依赖公司审批、资料披露和市场窗口。", riskType, company.Name)
+			mitigation := "仅做意向登记和合规审核，不承诺成交；后续由合作方确认底层资产、文件和份额分配。"
+			if _, err := s.db.Exec(`INSERT OR IGNORE INTO company_risks (company_id, risk_type, severity, summary, mitigation) VALUES (?, ?, ?, ?, ?)`,
+				company.ID, riskType, severity, summary, mitigation); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Store) ensureDemoIntents(companies []domain.Company) error {
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM investment_intents`).Scan(&count); err != nil {
+		return err
+	}
+	preferences := []string{"单一标的认购", "SPV 份额", "主题篮子", "收益权凭证"}
+	lockups := []string{"6个月", "12个月", "18个月", "24个月"}
+	structures := []string{"接受 SPV 和收益权", "仅接受 SPV", "接受合成敞口", "需先完成 KYC 后确认"}
+	for i := count; i < 80 && i < len(companies); i++ {
+		company := companies[(i*3)%len(companies)]
+		userID := int64(2)
+		if i%4 == 0 {
+			userID = 4
+		}
+		kyc := 1
+		if i%9 == 0 {
+			kyc = 0
+		}
+		amount := float64(50000 + (i%14)*35000)
+		minTicket := float64(25000 + (i%5)*25000)
+		if _, err := s.db.Exec(`INSERT INTO investment_intents (user_id, company_id, focus, amount, min_ticket, lockup, product_preference, accept_structures, kyc_willing, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)`,
+			userID, company.ID, company.Industry, amount, minTicket, lockups[i%len(lockups)], preferences[i%len(preferences)], structures[i%len(structures)], kyc, time.Now().Add(-time.Duration(i)*6*time.Hour).Format(time.RFC3339)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) ensureDemoLiquidityRequests(companies []domain.Company) error {
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM liquidity_requests`).Scan(&count); err != nil {
+		return err
+	}
+	windows := []string{"2026-06 月度窗口", "2026-Q3 季度窗口", "2026-09 月度窗口"}
+	for i := count; i < 36 && i < len(companies); i++ {
+		company := companies[(i*5)%len(companies)]
+		side := "buyer_indication"
+		userID := int64(2)
+		if i%3 == 0 {
+			side = "transfer_request"
+			userID = 3
+		}
+		low := company.SharePrice * (0.82 + float64(i%5)*0.02)
+		high := company.SharePrice * (0.95 + float64(i%4)*0.025)
+		if _, err := s.db.Exec(`INSERT INTO liquidity_requests (user_id, company_id, side, amount, share_price_low, share_price_high, window, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?)`,
+			userID, company.ID, side, float64(40000+(i%10)*22000), low, high, windows[i%len(windows)], "演示流动性窗口意向，需白名单和合作方确认。", time.Now().Add(-time.Duration(i)*8*time.Hour).Format(time.RFC3339)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) ensureDealDetails() error {
+	rows, err := s.db.Query(`SELECT id, name, deal_type FROM deals`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	type dealDetail struct {
+		id       int64
+		name     string
+		dealType string
+	}
+	var deals []dealDetail
+	for rows.Next() {
+		var item dealDetail
+		if err := rows.Scan(&item.id, &item.name, &item.dealType); err != nil {
+			return err
+		}
+		deals = append(deals, item)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for index, deal := range deals {
+		eligibility := "适合已完成 KYC、AML 和合格投资人认证的长期资金，最低认购额按项目披露执行。"
+		keyRisks := "底层资产真实性、公司转让审批、估值波动、退出窗口不确定。"
+		partner := "合作发行方 " + strconv.Itoa(1000+index)
+		status := "认购协议、风险揭示书、运营协议已准备"
+		switch deal.dealType {
+		case "fund_basket":
+			eligibility = "适合希望分散单一标的风险、接受组合调仓和季度报告的投资人。"
+			keyRisks = "组合透明度、单一标的额度不足、估值方法差异和管理费结构。"
+		case "direct_secondary":
+			eligibility = "适合已在白名单内、可配合卖方和公司审批流程的买方。"
+			keyRisks = "转让限制、优先购买权、对手方撤回和成交周期不确定。"
+			status = "NDA、意向书、转让审批清单已准备"
+		}
+		if _, err := s.db.Exec(`UPDATE deals SET eligibility = ?, key_risks = ?, partner_name = ?, document_status = ? WHERE id = ?`,
+			eligibility, keyRisks, partner, status, deal.id); err != nil {
 			return err
 		}
 	}
@@ -1261,7 +1505,7 @@ func applyComplianceResult(ctx context.Context, tx *sql.Tx, userID int64, review
 }
 
 func (s *Store) Companies() ([]domain.Company, error) {
-	rows, err := s.db.Query(`SELECT id, name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions FROM companies ORDER BY id`)
+	rows, err := s.db.Query(`SELECT id, name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions, ipo_progress, investor_structure, comparable_companies, heat_score, data_confidence FROM companies ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -1269,7 +1513,7 @@ func (s *Store) Companies() ([]domain.Company, error) {
 	var companies []domain.Company
 	for rows.Next() {
 		var company domain.Company
-		if err := rows.Scan(&company.ID, &company.Name, &company.Industry, &company.Valuation, &company.FundingRound, &company.SharePrice, &company.Description, &company.TradableStatus, &company.TransferRestrictions); err != nil {
+		if err := rows.Scan(&company.ID, &company.Name, &company.Industry, &company.Valuation, &company.FundingRound, &company.SharePrice, &company.Description, &company.TradableStatus, &company.TransferRestrictions, &company.IPOProgress, &company.InvestorStructure, &company.ComparableCompanies, &company.HeatScore, &company.DataConfidence); err != nil {
 			return nil, err
 		}
 		companies = append(companies, company)
@@ -1279,8 +1523,8 @@ func (s *Store) Companies() ([]domain.Company, error) {
 
 func (s *Store) Company(id int64) (domain.Company, error) {
 	var company domain.Company
-	err := s.db.QueryRow(`SELECT id, name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions FROM companies WHERE id = ?`, id).
-		Scan(&company.ID, &company.Name, &company.Industry, &company.Valuation, &company.FundingRound, &company.SharePrice, &company.Description, &company.TradableStatus, &company.TransferRestrictions)
+	err := s.db.QueryRow(`SELECT id, name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions, ipo_progress, investor_structure, comparable_companies, heat_score, data_confidence FROM companies WHERE id = ?`, id).
+		Scan(&company.ID, &company.Name, &company.Industry, &company.Valuation, &company.FundingRound, &company.SharePrice, &company.Description, &company.TradableStatus, &company.TransferRestrictions, &company.IPOProgress, &company.InvestorStructure, &company.ComparableCompanies, &company.HeatScore, &company.DataConfidence)
 	return company, err
 }
 
@@ -1290,8 +1534,8 @@ func (s *Store) CreateCompany(ctx context.Context, actorID int64, company domain
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		company.Name, company.Industry, company.Valuation, company.FundingRound, company.SharePrice, company.Description, company.TradableStatus, company.TransferRestrictions)
+	res, err := tx.ExecContext(ctx, `INSERT INTO companies (name, industry, valuation, funding_round, share_price, description, tradable_status, transfer_restrictions, ipo_progress, investor_structure, comparable_companies, heat_score, data_confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		company.Name, company.Industry, company.Valuation, company.FundingRound, company.SharePrice, company.Description, company.TradableStatus, company.TransferRestrictions, company.IPOProgress, company.InvestorStructure, company.ComparableCompanies, company.HeatScore, company.DataConfidence)
 	if err != nil {
 		return err
 	}
@@ -1300,6 +1544,145 @@ func (s *Store) CreateCompany(ctx context.Context, actorID int64, company domain
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *Store) CompanyFundingRounds(companyID int64) ([]domain.CompanyFundingRound, error) {
+	rows, err := s.db.Query(`SELECT f.id, f.company_id, c.name, f.round_name, f.amount, f.valuation, f.lead_investors, f.announced_at
+		FROM company_funding_rounds f JOIN companies c ON c.id = f.company_id
+		WHERE f.company_id = ? ORDER BY f.announced_at DESC, f.id DESC`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var rounds []domain.CompanyFundingRound
+	for rows.Next() {
+		var item domain.CompanyFundingRound
+		if err := rows.Scan(&item.ID, &item.CompanyID, &item.CompanyName, &item.RoundName, &item.Amount, &item.Valuation, &item.LeadInvestors, &item.AnnouncedAt); err != nil {
+			return nil, err
+		}
+		rounds = append(rounds, item)
+	}
+	return rounds, rows.Err()
+}
+
+func (s *Store) CompanyRisks(companyID int64) ([]domain.CompanyRisk, error) {
+	rows, err := s.db.Query(`SELECT r.id, r.company_id, c.name, r.risk_type, r.severity, r.summary, r.mitigation
+		FROM company_risks r JOIN companies c ON c.id = r.company_id
+		WHERE r.company_id = ? ORDER BY CASE r.severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, r.id`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var risks []domain.CompanyRisk
+	for rows.Next() {
+		var item domain.CompanyRisk
+		if err := rows.Scan(&item.ID, &item.CompanyID, &item.CompanyName, &item.RiskType, &item.Severity, &item.Summary, &item.Mitigation); err != nil {
+			return nil, err
+		}
+		risks = append(risks, item)
+	}
+	return risks, rows.Err()
+}
+
+func (s *Store) CreateInvestmentIntent(ctx context.Context, userID int64, intent domain.InvestmentIntent) error {
+	if userID <= 0 || intent.CompanyID <= 0 || intent.Amount <= 0 || intent.MinTicket <= 0 {
+		return fmt.Errorf("valid investment intent is required")
+	}
+	kyc := 0
+	if intent.KYCWilling {
+		kyc = 1
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO investment_intents (user_id, company_id, focus, amount, min_ticket, lockup, product_preference, accept_structures, kyc_willing, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)`,
+		userID, intent.CompanyID, intent.Focus, intent.Amount, intent.MinTicket, intent.Lockup, intent.ProductPreference, intent.AcceptStructures, kyc, time.Now().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) InvestmentIntents(user domain.User) ([]domain.InvestmentIntent, error) {
+	query := `SELECT i.id, i.user_id, u.name, i.company_id, c.name, i.focus, i.amount, i.min_ticket, i.lockup, i.product_preference, i.accept_structures, i.kyc_willing, i.status, i.created_at
+		FROM investment_intents i
+		JOIN users u ON u.id = i.user_id
+		JOIN companies c ON c.id = i.company_id`
+	args := []any{}
+	if user.Role != domain.RoleAdmin {
+		query += ` WHERE i.user_id = ?`
+		args = append(args, user.ID)
+	}
+	query += ` ORDER BY i.id DESC LIMIT 200`
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var intents []domain.InvestmentIntent
+	for rows.Next() {
+		var item domain.InvestmentIntent
+		var kyc int
+		if err := rows.Scan(&item.ID, &item.UserID, &item.UserName, &item.CompanyID, &item.CompanyName, &item.Focus, &item.Amount, &item.MinTicket, &item.Lockup, &item.ProductPreference, &item.AcceptStructures, &kyc, &item.Status, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		item.KYCWilling = kyc == 1
+		intents = append(intents, item)
+	}
+	return intents, rows.Err()
+}
+
+func (s *Store) IntentSummaries() ([]domain.IntentSummary, error) {
+	rows, err := s.db.Query(`SELECT c.name || ' / ' || i.product_preference, COUNT(*), COALESCE(SUM(i.amount), 0), COALESCE(AVG(i.min_ticket), 0), COALESCE(SUM(i.kyc_willing), 0)
+		FROM investment_intents i JOIN companies c ON c.id = i.company_id
+		GROUP BY c.name, i.product_preference
+		ORDER BY SUM(i.amount) DESC, COUNT(*) DESC LIMIT 30`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var summaries []domain.IntentSummary
+	for rows.Next() {
+		var item domain.IntentSummary
+		if err := rows.Scan(&item.Label, &item.IntentCount, &item.TotalAmount, &item.AvgTicket, &item.KYCWilling); err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, item)
+	}
+	return summaries, rows.Err()
+}
+
+func (s *Store) CreateLiquidityRequest(ctx context.Context, userID int64, request domain.LiquidityRequest) error {
+	if userID <= 0 || request.CompanyID <= 0 || request.Amount <= 0 || request.SharePriceLow <= 0 || request.SharePriceHigh <= 0 {
+		return fmt.Errorf("valid liquidity request is required")
+	}
+	if request.SharePriceHigh < request.SharePriceLow {
+		request.SharePriceLow, request.SharePriceHigh = request.SharePriceHigh, request.SharePriceLow
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO liquidity_requests (user_id, company_id, side, amount, share_price_low, share_price_high, window, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?)`,
+		userID, request.CompanyID, request.Side, request.Amount, request.SharePriceLow, request.SharePriceHigh, request.Window, request.Note, time.Now().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) LiquidityRequests(user domain.User) ([]domain.LiquidityRequest, error) {
+	query := `SELECT l.id, l.user_id, u.name, l.company_id, c.name, l.side, l.amount, l.share_price_low, l.share_price_high, l.window, l.status, l.note, l.created_at
+		FROM liquidity_requests l
+		JOIN users u ON u.id = l.user_id
+		JOIN companies c ON c.id = l.company_id`
+	args := []any{}
+	if user.Role != domain.RoleAdmin {
+		query += ` WHERE l.user_id = ?`
+		args = append(args, user.ID)
+	}
+	query += ` ORDER BY l.id DESC LIMIT 200`
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var requests []domain.LiquidityRequest
+	for rows.Next() {
+		var item domain.LiquidityRequest
+		if err := rows.Scan(&item.ID, &item.UserID, &item.UserName, &item.CompanyID, &item.CompanyName, &item.Side, &item.Amount, &item.SharePriceLow, &item.SharePriceHigh, &item.Window, &item.Status, &item.Note, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		requests = append(requests, item)
+	}
+	return requests, rows.Err()
 }
 
 func (s *Store) Watchlist(userID int64) ([]domain.WatchlistItem, error) {
@@ -1893,10 +2276,10 @@ func executionStatusesForStage(stage domain.TransactionStage) (string, string, s
 }
 
 func (s *Store) Deals() ([]domain.Deal, error) {
-	rows, err := s.db.Query(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0), d.target_size - COALESCE(SUM(s.amount), 0)
+	rows, err := s.db.Query(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0), d.target_size - COALESCE(SUM(s.amount), 0), d.eligibility, d.key_risks, d.partner_name, d.document_status
 		FROM deals d JOIN companies c ON c.id = d.company_id
 		LEFT JOIN subscriptions s ON s.deal_id = d.id AND s.status != 'cancelled'
-		GROUP BY d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status
+		GROUP BY d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, d.eligibility, d.key_risks, d.partner_name, d.document_status
 		ORDER BY d.id`)
 	if err != nil {
 		return nil, err
@@ -1905,7 +2288,7 @@ func (s *Store) Deals() ([]domain.Deal, error) {
 	var deals []domain.Deal
 	for rows.Next() {
 		var deal domain.Deal
-		if err := rows.Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount, &deal.RemainingAmount); err != nil {
+		if err := rows.Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount, &deal.RemainingAmount, &deal.Eligibility, &deal.KeyRisks, &deal.PartnerName, &deal.DocumentStatus); err != nil {
 			return nil, err
 		}
 		deals = append(deals, deal)
@@ -1915,12 +2298,12 @@ func (s *Store) Deals() ([]domain.Deal, error) {
 
 func (s *Store) Deal(id int64) (domain.Deal, error) {
 	var deal domain.Deal
-	err := s.db.QueryRow(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0), d.target_size - COALESCE(SUM(s.amount), 0)
+	err := s.db.QueryRow(`SELECT d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, COALESCE(SUM(s.amount), 0), d.target_size - COALESCE(SUM(s.amount), 0), d.eligibility, d.key_risks, d.partner_name, d.document_status
 		FROM deals d JOIN companies c ON c.id = d.company_id
 		LEFT JOIN subscriptions s ON s.deal_id = d.id AND s.status != 'cancelled'
 		WHERE d.id = ?
-		GROUP BY d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status`, id).
-		Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount, &deal.RemainingAmount)
+		GROUP BY d.id, d.company_id, c.name, d.name, d.deal_type, d.structure, d.min_subscription, d.target_size, d.fee_description, d.status, d.eligibility, d.key_risks, d.partner_name, d.document_status`, id).
+		Scan(&deal.ID, &deal.CompanyID, &deal.CompanyName, &deal.Name, &deal.DealType, &deal.Structure, &deal.MinSubscription, &deal.TargetSize, &deal.FeeDescription, &deal.Status, &deal.SubscribedAmount, &deal.RemainingAmount, &deal.Eligibility, &deal.KeyRisks, &deal.PartnerName, &deal.DocumentStatus)
 	return deal, err
 }
 
@@ -1930,8 +2313,8 @@ func (s *Store) CreateDeal(ctx context.Context, actorID int64, deal domain.Deal)
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'open')`,
-		deal.CompanyID, deal.Name, deal.DealType, deal.Structure, deal.MinSubscription, deal.TargetSize, deal.FeeDescription)
+	res, err := tx.ExecContext(ctx, `INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status, eligibility, key_risks, partner_name, document_status) VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
+		deal.CompanyID, deal.Name, deal.DealType, deal.Structure, deal.MinSubscription, deal.TargetSize, deal.FeeDescription, deal.Eligibility, deal.KeyRisks, deal.PartnerName, deal.DocumentStatus)
 	if err != nil {
 		return err
 	}

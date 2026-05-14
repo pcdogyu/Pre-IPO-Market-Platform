@@ -434,6 +434,91 @@ func TestCompanyPageRendersFinancialReports(t *testing.T) {
 	}
 }
 
+func TestAssetInformationIntentAndLiquidityHTTP(t *testing.T) {
+	app := testApp(t)
+	investorCookie := loginCookie(t, app, "investor")
+
+	req := httptest.NewRequest(http.MethodGet, "/companies?q=%E7%A5%9E%E7%BB%8F&sort=heat", nil)
+	req.AddCookie(investorCookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("companies status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"热度分", "数据可信度", "登记意向", "神经桥智能"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("companies page should render %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/companies/1", nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("company status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	for _, want := range []string{"融资历史", "关键风险", "潜在 IPO 进展", "主要投资人", `action="/intents/create"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("company detail should render %q", want)
+		}
+	}
+
+	intentForm := url.Values{
+		"company_id":         {"1"},
+		"focus":              {"人工智能基础设施"},
+		"amount":             {"120000"},
+		"min_ticket":         {"50000"},
+		"lockup":             {"12个月"},
+		"product_preference": {"SPV 份额"},
+		"accept_structures":  {"接受 SPV 和收益权"},
+		"kyc_willing":        {"yes"},
+	}
+	req = httptest.NewRequest(http.MethodPost, "/intents/create", strings.NewReader(intentForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("intent submit status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	liquidityForm := url.Values{
+		"company_id":       {"1"},
+		"side":             {"buyer_indication"},
+		"amount":           {"90000"},
+		"share_price_low":  {"36"},
+		"share_price_high": {"42"},
+		"window":           {"2026-Q3 季度窗口"},
+		"note":             {"测试流动性意向"},
+	}
+	req = httptest.NewRequest(http.MethodPost, "/market/liquidity", strings.NewReader(liquidityForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("liquidity submit status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	adminCookie := loginCookie(t, app, "admin")
+	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	for _, want := range []string{"用户意向池", "有限流动性窗口", "后续评估模块"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("admin page should render %q", want)
+		}
+	}
+}
+
 func TestPortfolioRendersValuationSummary(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor")

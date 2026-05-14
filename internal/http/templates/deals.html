@@ -17,7 +17,9 @@
         <p>{{.CompanyName}}</p>
         <p><strong>{{t $.Lang "label.spv_project_intro"}}</strong></p>
         <p class="muted deal-intro">{{.Structure}}</p>
-        <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.subscribed"}}</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.remaining"}}</dt><dd>{{money .RemainingAmount}}</dd></div></dl>
+        <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.subscribed"}}</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.remaining"}}</dt><dd>{{money .RemainingAmount}}</dd></div><div><dt>{{t $.Lang "label.eligibility"}}</dt><dd>{{.Eligibility}}</dd></div><div><dt>{{t $.Lang "label.document_status"}}</dt><dd>{{.DocumentStatus}}</dd></div></dl>
+        <p class="muted"><strong>{{t $.Lang "label.key_risks"}}:</strong> {{.KeyRisks}}</p>
+        <p class="muted"><strong>{{t $.Lang "label.partner"}}:</strong> {{.PartnerName}}</p>
         <p class="muted">{{t $.Lang "label.fees"}}: {{.FeeDescription}}</p>
         {{if and (canBuy $.User) (eq .Status "open")}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form"><input name="amount" type="number" min="{{.MinSubscription}}" max="{{.RemainingAmount}}" value="{{printf "%.0f" .MinSubscription}}"><button>{{t $.Lang "action.subscribe"}}</button></form>{{end}}
       </article>

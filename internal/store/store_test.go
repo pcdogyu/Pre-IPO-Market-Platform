@@ -401,7 +401,7 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	if ticketID == 0 {
 		t.Fatal("expected created support ticket")
 	}
-	if err := s.CreateSupportTicketMessage(context.Background(), investor, ticketID, "Investor follow-up"); err != nil {
+	if err := s.CreateSupportTicketMessage(context.Background(), investor, ticketID, "投资人补充问题"); err != nil {
 		t.Fatalf("create user ticket message: %v", err)
 	}
 	if err := s.CreateSupportTicketMessage(context.Background(), admin, ticketID, "管理员回复内容"); err != nil {
@@ -462,7 +462,7 @@ func TestWatchlistWorkflow(t *testing.T) {
 	}
 	var notified bool
 	for _, notification := range notifications {
-		if notification.Title == "Company update published" && notification.Body == "量子支付: 量子支付要约观察" {
+		if notification.Title == "公司更新已发布" && notification.Body == "量子支付: 量子支付要约观察" {
 			notified = true
 		}
 	}
@@ -617,7 +617,7 @@ func TestAdminCanUpdateDealStatus(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Deal status updated" {
+		if notification.Title == "项目状态已更新" {
 			return
 		}
 	}
@@ -829,10 +829,10 @@ func TestComplianceReviewWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authenticate pending user: %v", err)
 	}
-	if err := s.CreateComplianceReview(context.Background(), pending.ID, "all", "Updated documents uploaded"); err != nil {
+	if err := s.CreateComplianceReview(context.Background(), pending.ID, "all", "已上传更新文件"); err != nil {
 		t.Fatalf("create compliance review: %v", err)
 	}
-	if err := s.CreateComplianceReview(context.Background(), pending.ID, "bad", "Invalid"); err == nil {
+	if err := s.CreateComplianceReview(context.Background(), pending.ID, "bad", "无效类型"); err == nil {
 		t.Fatal("invalid compliance review type should fail")
 	}
 	reviews, err := s.ComplianceReviews(admin, 10)
@@ -864,7 +864,7 @@ func TestComplianceReviewWorkflow(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Compliance review resolved" {
+		if notification.Title == "合规复核已处理" {
 			return
 		}
 	}
@@ -881,7 +881,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
-	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "bad", "invalid"); err == nil {
+	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "bad", "无效评级"); err == nil {
 		t.Fatal("invalid risk rating should fail")
 	}
 	if err := s.UpdateUserRiskRating(context.Background(), admin.ID, investor.ID, "high", "年度适当性复核"); err != nil {
@@ -899,7 +899,7 @@ func TestAdminCanUpdateUserRiskRating(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Risk rating updated" {
+		if notification.Title == "风险评级已更新" {
 			return
 		}
 	}
@@ -912,7 +912,7 @@ func TestNegotiationWorkflows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
-	if err := s.CreateNegotiation(context.Background(), investor, 1, 41.75, 800, "Buyer counter offer"); err != nil {
+	if err := s.CreateNegotiation(context.Background(), investor, 1, 41.75, 800, "买方还价"); err != nil {
 		t.Fatalf("create investor negotiation: %v", err)
 	}
 	negotiations, err := s.Negotiations(investor)
@@ -921,7 +921,7 @@ func TestNegotiationWorkflows(t *testing.T) {
 	}
 	var found bool
 	for _, negotiation := range negotiations {
-		if negotiation.Note == "Buyer counter offer" {
+		if negotiation.Note == "买方还价" {
 			found = true
 		}
 	}
@@ -930,7 +930,7 @@ func TestNegotiationWorkflows(t *testing.T) {
 	}
 
 	outsider := domain.User{ID: 999, Role: domain.RoleInvestor}
-	if err := s.CreateNegotiation(context.Background(), outsider, 1, 40, 100, "Invalid"); err == nil {
+	if err := s.CreateNegotiation(context.Background(), outsider, 1, 40, 100, "无效还价"); err == nil {
 		t.Fatal("outsider should not negotiate another user's transaction")
 	}
 	admin, err := s.Authenticate("admin", "demo123")
@@ -948,7 +948,7 @@ func TestExecutionDocumentWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authenticate admin: %v", err)
 	}
-	if err := s.CreateExecutionDocument(context.Background(), admin.ID, 1, "Transfer Instruction", "Transfer packet"); err != nil {
+	if err := s.CreateExecutionDocument(context.Background(), admin.ID, 1, "Transfer Instruction", "转让文件包"); err != nil {
 		t.Fatalf("create execution document: %v", err)
 	}
 	docs, err := s.ExecutionDocuments(admin)
@@ -1200,7 +1200,7 @@ func TestNotificationWorkflow(t *testing.T) {
 	}
 	var notificationID int64
 	for _, notification := range notifications {
-		if notification.Title == "Transaction status updated" && notification.Status == "unread" {
+		if notification.Title == "交易状态已更新" && notification.Status == "unread" {
 			notificationID = notification.ID
 			break
 		}
@@ -1252,7 +1252,7 @@ func TestCapitalCallWorkflow(t *testing.T) {
 		DealID:  1,
 		Amount:  7500,
 		DueDate: "2026-08-01",
-		Notice:  "Follow-on capital call",
+		Notice:  "后续资本调用",
 	}); err != nil {
 		t.Fatalf("create capital call: %v", err)
 	}
@@ -1336,7 +1336,7 @@ func TestCompanyUpdateWorkflow(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Company update published" && notification.Status == "unread" {
+		if notification.Title == "公司更新已发布" && notification.Status == "unread" {
 			return
 		}
 	}

@@ -994,7 +994,7 @@ func (s *Store) UpdateUserRiskRating(ctx context.Context, actorID, userID int64,
 	if err := insertAudit(ctx, tx, actorID, "update_user_risk_rating", "user", userID, fmt.Sprintf("%s -> %s: %s", email, rating, note)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Risk rating updated", fmt.Sprintf("平台风险评级已更新为%s", zhText(rating))); err != nil {
+	if err := insertNotification(ctx, tx, userID, "风险评级已更新", fmt.Sprintf("平台风险评级已更新为%s", zhText(rating))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1079,7 +1079,7 @@ func (s *Store) CreateComplianceReview(ctx context.Context, userID int64, review
 	if err := insertAudit(ctx, tx, userID, "create_compliance_review", "compliance_review", id, reviewType); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Compliance review submitted", fmt.Sprintf("%s复核已提交，当前待处理", zhText(reviewType))); err != nil {
+	if err := insertNotification(ctx, tx, userID, "合规复核已提交", fmt.Sprintf("%s复核已提交，当前待处理", zhText(reviewType))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1117,7 +1117,7 @@ func (s *Store) ResolveComplianceReview(ctx context.Context, actorID, reviewID i
 	if err := insertAudit(ctx, tx, actorID, action, "compliance_review", reviewID, fmt.Sprintf("%s -> %s", reviewType, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Compliance review resolved", fmt.Sprintf("%s复核结果为%s", zhText(reviewType), zhText(next))); err != nil {
+	if err := insertNotification(ctx, tx, userID, "合规复核已处理", fmt.Sprintf("%s复核结果为%s", zhText(reviewType), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1399,7 +1399,7 @@ func (s *Store) PublishCompanyUpdate(ctx context.Context, actorID int64, update 
 		return err
 	}
 	for _, userID := range userIDs {
-		if err := insertNotification(ctx, tx, userID, "Company update published", fmt.Sprintf("%s: %s", companyName, update.Title)); err != nil {
+		if err := insertNotification(ctx, tx, userID, "公司更新已发布", fmt.Sprintf("%s: %s", companyName, update.Title)); err != nil {
 			return err
 		}
 	}
@@ -1506,7 +1506,7 @@ func (s *Store) CancelSellOrder(ctx context.Context, sellerID, orderID int64) er
 	if err := insertAudit(ctx, tx, sellerID, "cancel_sell_order", "sell_order", orderID, "卖方取消开放订单"); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Sell order cancelled", fmt.Sprintf("%s卖出订单已取消", companyName)); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "卖出订单已取消", fmt.Sprintf("%s卖出订单已取消", companyName)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1550,7 +1550,7 @@ func (s *Store) CancelBuyInterest(ctx context.Context, investorID, interestID in
 	if err := insertAudit(ctx, tx, investorID, "cancel_buy_interest", "buy_interest", interestID, "投资人取消买入意向"); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Buy interest cancelled", fmt.Sprintf("%s买入意向已取消", companyName)); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "买入意向已取消", fmt.Sprintf("%s买入意向已取消", companyName)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1610,7 +1610,7 @@ func (s *Store) CreateMatchedTransaction(ctx context.Context, actorID, sellOrder
 	if _, err := tx.ExecContext(ctx, `UPDATE buy_interests SET status = 'matched' WHERE id = ?`, buyInterestID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, actorID, "create_match", "transaction", transactionID, fmt.Sprintf("sell_order #%d + buy_interest #%d", sellOrderID, buyInterestID)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "create_match", "transaction", transactionID, fmt.Sprintf("卖出订单 #%d + 买入意向 #%d", sellOrderID, buyInterestID)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1747,10 +1747,10 @@ func (s *Store) AdvanceTransaction(ctx context.Context, actorID, transactionID i
 		return err
 	}
 	notificationBody := fmt.Sprintf("%s交易状态已由%s更新为%s", companyName, zhText(stage), zhText(next))
-	if err := insertNotification(ctx, tx, buyerID, "Transaction status updated", notificationBody); err != nil {
+	if err := insertNotification(ctx, tx, buyerID, "交易状态已更新", notificationBody); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Transaction status updated", notificationBody); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "交易状态已更新", notificationBody); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1780,10 +1780,10 @@ func (s *Store) CancelTransaction(ctx context.Context, actorID, transactionID in
 		return err
 	}
 	body := fmt.Sprintf("%s交易已从%s状态取消", companyName, zhText(stage))
-	if err := insertNotification(ctx, tx, buyerID, "Transaction cancelled", body); err != nil {
+	if err := insertNotification(ctx, tx, buyerID, "交易已取消", body); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Transaction cancelled", body); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "交易已取消", body); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1902,7 +1902,7 @@ func (s *Store) UpdateDealStatus(ctx context.Context, actorID, dealID int64, sta
 		return err
 	}
 	for _, userID := range subscriberIDs {
-		if err := insertNotification(ctx, tx, userID, "Deal status updated", fmt.Sprintf("%s项目状态已由%s更新为%s", dealName, zhText(current), zhText(status))); err != nil {
+		if err := insertNotification(ctx, tx, userID, "项目状态已更新", fmt.Sprintf("%s项目状态已由%s更新为%s", dealName, zhText(current), zhText(status))); err != nil {
 			return err
 		}
 	}
@@ -2043,7 +2043,7 @@ func (s *Store) AdvanceSubscription(ctx context.Context, actorID, subscriptionID
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription status updated", fmt.Sprintf("%s认购状态已由%s更新为%s", dealName, zhText(status), zhText(next))); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "认购状态已更新", fmt.Sprintf("%s认购状态已由%s更新为%s", dealName, zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2071,7 +2071,7 @@ func (s *Store) CancelSubscription(ctx context.Context, actorID, subscriptionID 
 	if err := insertAudit(ctx, tx, actorID, "cancel_subscription", "subscription", subscriptionID, fmt.Sprintf("%s -> %s", status, domain.SubscriptionCancelled)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription cancelled", fmt.Sprintf("%s认购已从%s状态取消", dealName, zhText(status))); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "认购已取消", fmt.Sprintf("%s认购已从%s状态取消", dealName, zhText(status))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2132,10 +2132,10 @@ func (s *Store) CreateSubscriptionDocument(ctx context.Context, actorID, subscri
 		return err
 	}
 	id, _ := res.LastInsertId()
-	if err := insertAudit(ctx, tx, actorID, "create_subscription_document", "subscription_document", id, fmt.Sprintf("subscription #%d %s", subscriptionID, documentType)); err != nil {
+	if err := insertAudit(ctx, tx, actorID, "create_subscription_document", "subscription_document", id, fmt.Sprintf("认购 #%d %s", subscriptionID, zhText(documentType))); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription document created", fmt.Sprintf("%s的%s已起草", dealName, zhText(documentType))); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "认购文件已创建", fmt.Sprintf("%s的%s已起草", dealName, zhText(documentType))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2782,7 +2782,7 @@ func (s *Store) CreateCapitalCall(ctx context.Context, actorID int64, call domai
 	if err := insertAudit(ctx, tx, actorID, "create_capital_call", "capital_call", id, fmt.Sprintf("金额 %.2f，截止 %s", call.Amount, call.DueDate)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, call.UserID, "Capital call issued", fmt.Sprintf("资本调用%.2f需在%s前完成", call.Amount, call.DueDate)); err != nil {
+	if err := insertNotification(ctx, tx, call.UserID, "资本调用已发出", fmt.Sprintf("资本调用%.2f需在%s前完成", call.Amount, call.DueDate)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2808,7 +2808,7 @@ func (s *Store) ConfirmCapitalCall(ctx context.Context, userID, callID int64) er
 	if err := insertAudit(ctx, tx, userID, "confirm_capital_call", "capital_call", callID, fmt.Sprintf("已出资 %.2f", amount)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Capital call funded", fmt.Sprintf("你的资本调用%.2f已标记为已出资", amount)); err != nil {
+	if err := insertNotification(ctx, tx, userID, "资本调用已出资", fmt.Sprintf("你的资本调用%.2f已标记为已出资", amount)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2836,7 +2836,7 @@ func (s *Store) CreateDistribution(ctx context.Context, actorID int64, distribut
 	if err := insertAudit(ctx, tx, actorID, "create_distribution", "distribution", id, distribution.Status); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, distribution.UserID, "Distribution created", fmt.Sprintf("分配%.2f当前为%s", distribution.Amount, zhText(distribution.Status))); err != nil {
+	if err := insertNotification(ctx, tx, distribution.UserID, "分配已创建", fmt.Sprintf("分配%.2f当前为%s", distribution.Amount, zhText(distribution.Status))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2864,7 +2864,7 @@ func (s *Store) AdvanceDistribution(ctx context.Context, actorID, distributionID
 	if err := insertAudit(ctx, tx, actorID, "advance_distribution", "distribution", distributionID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Distribution status updated", fmt.Sprintf("分配%.2f已由%s更新为%s", amount, zhText(status), zhText(next))); err != nil {
+	if err := insertNotification(ctx, tx, userID, "分配状态已更新", fmt.Sprintf("分配%.2f已由%s更新为%s", amount, zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2935,7 +2935,7 @@ func (s *Store) CreateReport(ctx context.Context, actorID int64, report domain.I
 	if err := insertAudit(ctx, tx, actorID, "create_report", "investor_report", id, report.Title); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, report.UserID, "Investor report available", fmt.Sprintf("%s（%s）当前为%s", report.Title, report.Period, zhText(report.Status))); err != nil {
+	if err := insertNotification(ctx, tx, report.UserID, "投资人报告可查看", fmt.Sprintf("%s（%s）当前为%s", report.Title, report.Period, zhText(report.Status))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2964,7 +2964,7 @@ func (s *Store) AdvanceReport(ctx context.Context, actorID, reportID int64) erro
 	if err := insertAudit(ctx, tx, actorID, "advance_report", "investor_report", reportID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, userID, "Investor report updated", fmt.Sprintf("%s（%s）已由%s更新为%s", title, period, zhText(status), zhText(next))); err != nil {
+	if err := insertNotification(ctx, tx, userID, "投资人报告已更新", fmt.Sprintf("%s（%s）已由%s更新为%s", title, period, zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -3044,7 +3044,7 @@ func (s *Store) MarkAllNotificationsRead(ctx context.Context, userID int64) erro
 	if _, err := tx.ExecContext(ctx, `UPDATE notifications SET status = 'read' WHERE user_id = ? AND status = 'unread'`, userID); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, userID, "mark_all_notifications_read", "notification", userID, "all unread notifications -> read"); err != nil {
+	if err := insertAudit(ctx, tx, userID, "mark_all_notifications_read", "notification", userID, "全部未读通知已更新为已读"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -3137,7 +3137,7 @@ func (s *Store) AddRiskAction(ctx context.Context, actorID, alertID, assigneeID 
 		return err
 	}
 	if assigneeID > 0 {
-		if err := insertNotification(ctx, tx, assigneeID, "Risk alert assigned", fmt.Sprintf("%s需要复核", subject)); err != nil {
+		if err := insertNotification(ctx, tx, assigneeID, "风险提示已分配", fmt.Sprintf("%s需要复核", subject)); err != nil {
 			return err
 		}
 	}
@@ -3271,7 +3271,7 @@ func (s *Store) CreateSupportTicketMessage(ctx context.Context, actor domain.Use
 		return err
 	}
 	if actor.Role == domain.RoleAdmin {
-		if err := insertNotification(ctx, tx, ticketUserID, "Support ticket reply", fmt.Sprintf("%s有新的管理员回复", subject)); err != nil {
+		if err := insertNotification(ctx, tx, ticketUserID, "客服工单回复", fmt.Sprintf("%s有新的管理员回复", subject)); err != nil {
 			return err
 		}
 	} else {
@@ -3296,7 +3296,7 @@ func (s *Store) CreateSupportTicketMessage(ctx context.Context, actor domain.Use
 			return err
 		}
 		for _, adminID := range adminIDs {
-			if err := insertNotification(ctx, tx, adminID, "Support ticket reply", fmt.Sprintf("%s有新的用户回复", subject)); err != nil {
+			if err := insertNotification(ctx, tx, adminID, "客服工单回复", fmt.Sprintf("%s有新的用户回复", subject)); err != nil {
 				return err
 			}
 		}
@@ -3321,7 +3321,7 @@ func (s *Store) CloseSupportTicket(ctx context.Context, actorID, ticketID int64)
 	if err := insertAudit(ctx, tx, actorID, "close_support_ticket", "support_ticket", ticketID, "状态已更新为已关闭"); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, ticketUserID, "Support ticket closed", fmt.Sprintf("%s已关闭", subject)); err != nil {
+	if err := insertNotification(ctx, tx, ticketUserID, "客服工单已关闭", fmt.Sprintf("%s已关闭", subject)); err != nil {
 		return err
 	}
 	return tx.Commit()

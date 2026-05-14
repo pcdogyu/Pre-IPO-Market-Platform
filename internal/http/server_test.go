@@ -344,6 +344,42 @@ func TestUserCanManageWatchlist(t *testing.T) {
 	}
 }
 
+func TestDashboardPaginatesLongSections(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dashboard status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if count := strings.Count(body, `class="row-link"`); count != 20 {
+		t.Fatalf("dashboard company rows got %d, want 20", count)
+	}
+	for _, want := range []string{`companies_page=2`, `#dashboard-companies`, "下一页"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("dashboard pagination should render %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/dashboard?companies_page=2", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dashboard page 2 status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	if !strings.Contains(body, `companies_page=1`) || !strings.Contains(body, "上一页") {
+		t.Fatal("dashboard page 2 should render previous pagination link")
+	}
+	if count := strings.Count(body, `class="row-link"`); count != 20 {
+		t.Fatalf("dashboard company rows on page 2 got %d, want 20", count)
+	}
+}
+
 func TestCompanyPageRendersMarketValueAndSharePriceCharts(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor")
@@ -411,8 +447,31 @@ func TestMarketAndDealsCanFilterByCompany(t *testing.T) {
 	if !strings.Contains(body, "神经桥智能 · 项目载体认购") || !strings.Contains(body, "神经桥成长组合") {
 		t.Fatal("deals page should render selected company deal context")
 	}
+	for _, want := range []string{`href="/companies/1"`, "查看公司", "认购 SPV"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("deals page should render company entry and SPV subscribe action %q", want)
+		}
+	}
 	if strings.Contains(body, "赫利欧电网专项载体一期") {
 		t.Fatal("deals page should not render other company deals when filtered")
+	}
+}
+
+func TestMarketShowsEmptyNegotiationStateForCompanyWithoutTransactions(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/market/orders?company_id=5", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"暂无可议价交易", `select name="transaction_id" disabled`, `value="/market/orders?company_id=5"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("market page should render %q", want)
+		}
 	}
 }
 

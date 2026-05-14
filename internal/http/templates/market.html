@@ -67,12 +67,13 @@
     <section class="grid two">
       <form method="post" action="/negotiations/create" class="panel stack">
         <h2>{{t .Lang "label.negotiation"}}</h2>
-        <input type="hidden" name="redirect" value="/market/orders">
-        <label>{{t .Lang "label.transaction"}}<select name="transaction_id">{{range .Transactions}}{{if not (terminalTxn .Stage)}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{end}}{{end}}</select></label>
+        <input type="hidden" name="redirect" value="/market/orders{{if .SelectedCompanyID}}?company_id={{.SelectedCompanyID}}{{end}}">
+        <label>{{t .Lang "label.transaction"}}<select name="transaction_id" {{if not .OpenTransactions}}disabled{{end}}>{{range .OpenTransactions}}<option value="{{.ID}}">#{{.ID}} {{.CompanyName}} · {{.Shares}} @ {{money .Price}}</option>{{else}}<option value="">{{t $.Lang "label.no_negotiable_transactions"}}</option>{{end}}</select></label>
         <label>{{t .Lang "label.price"}}<input name="offer_price" type="number" min="0.01" step="0.01" value="42.00" required></label>
         <label>{{t .Lang "label.shares"}}<input name="shares" type="number" min="1" value="800" required></label>
         <label>{{t .Lang "label.note"}}<input name="note" value="交易对手备注"></label>
-        <button>{{t .Lang "form.submit"}}</button>
+        <button {{if not .OpenTransactions}}disabled{{end}}>{{t .Lang "form.submit"}}</button>
+        {{if not .OpenTransactions}}<p class="muted">{{t .Lang "text.no_negotiable_transactions"}}</p>{{end}}
       </form>
       <div>
         <h2>{{t .Lang "label.negotiation_history"}}</h2>

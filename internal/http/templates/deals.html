@@ -14,14 +14,14 @@
       {{range .Deals}}
       <article class="card">
         <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{statusLabel .DealType $.Lang}} · {{statusLabel .Status $.Lang}}</span></div>
-        <p>{{.CompanyName}}</p>
+        <p><a class="text-link" href="/companies/{{.CompanyID}}">{{.CompanyName}}</a></p>
         <p><strong>{{t $.Lang "label.spv_project_intro"}}</strong></p>
         <p class="muted deal-intro">{{.Structure}}</p>
         <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.subscribed"}}</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.remaining"}}</dt><dd>{{money .RemainingAmount}}</dd></div><div><dt>{{t $.Lang "label.eligibility"}}</dt><dd>{{.Eligibility}}</dd></div><div><dt>{{t $.Lang "label.document_status"}}</dt><dd>{{.DocumentStatus}}</dd></div></dl>
         <p class="muted"><strong>{{t $.Lang "label.key_risks"}}:</strong> {{.KeyRisks}}</p>
         <p class="muted"><strong>{{t $.Lang "label.partner"}}:</strong> {{.PartnerName}}</p>
         <p class="muted">{{t $.Lang "label.fees"}}: {{.FeeDescription}}</p>
-        {{if and (canBuy $.User) (eq .Status "open")}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form"><input name="amount" type="number" min="{{.MinSubscription}}" max="{{.RemainingAmount}}" value="{{printf "%.0f" .MinSubscription}}"><button>{{t $.Lang "action.subscribe"}}</button></form>{{end}}
+        <div class="actions deal-actions"><a class="button secondary" href="/companies/{{.CompanyID}}">{{t $.Lang "label.view_company"}}</a>{{if and (canBuy $.User) (eq .Status "open")}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form subscribe-form"><input name="amount" type="number" min="{{.MinSubscription}}" max="{{.RemainingAmount}}" value="{{printf "%.0f" .MinSubscription}}" aria-label="{{t $.Lang "label.subscription_amount"}}"><button>{{t $.Lang "action.subscribe_spv"}}</button></form>{{end}}</div>
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>

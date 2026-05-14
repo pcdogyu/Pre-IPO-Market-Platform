@@ -40,38 +40,43 @@
         <label>{{t .Lang "label.note"}}<input name="note" value="请复核我更新后的合规材料。"></label>
         <button>{{t .Lang "form.submit"}}</button>
       </form>
-      <div><h2>{{t .Lang "label.compliance_request"}}</h2><table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.submitted"}}</th><th>{{t .Lang "label.reviewed"}}</th></tr></thead><tbody>{{range .ComplianceReviews}}<tr><td>{{statusLabel .ReviewType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SubmittedAt}}</td><td>{{.ReviewedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></div>
+      <div id="dashboard-reviews"><h2>{{t .Lang "label.compliance_request"}}</h2><table><thead><tr><th>{{t .Lang "label.type"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.submitted"}}</th><th>{{t .Lang "label.reviewed"}}</th></tr></thead><tbody>{{range .ComplianceReviews}}<tr><td>{{statusLabel .ReviewType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SubmittedAt}}</td><td>{{.ReviewedAt}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table>{{with index .DashboardPages "reviews"}}{{if gt .TotalPages 1}}<nav class="pagination compact" aria-label="合规分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t $.Lang "label.prev"}}</a>{{end}}{{range .Links}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t $.Lang "label.next"}}</a>{{end}}</nav>{{end}}{{end}}</div>
     </section>
-    <section>
+    <section id="dashboard-portfolio">
       <h2>{{t .Lang "label.portfolio_mark"}}</h2>
       <table><thead><tr><th>{{t .Lang "label.position"}}</th><th>{{t .Lang "label.source"}}</th><th>{{t .Lang "label.cost"}}</th><th>{{t .Lang "label.current"}}</th><th>{{t .Lang "label.gain_loss"}}</th></tr></thead><tbody>
         {{range .PortfolioValues}}<tr><td>{{.Label}}</td><td>{{statusLabel .SourceType $.Lang}}</td><td>{{money .Cost}}</td><td>{{money .CurrentValue}}</td><td>{{money .UnrealizedGain}}</td></tr>{{else}}<tr><td colspan="5">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
+      {{with index .DashboardPages "portfolio"}}{{if gt .TotalPages 1}}<nav class="pagination compact" aria-label="组合估值分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t $.Lang "label.prev"}}</a>{{end}}{{range .Links}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t $.Lang "label.next"}}</a>{{end}}</nav>{{end}}{{end}}
     </section>
-    <section>
+    <section id="dashboard-notifications">
       <div class="section-head"><h2>{{t .Lang "label.notifications"}}</h2><form method="post" action="/notifications/read-all"><button class="small secondary">{{t .Lang "label.mark_all_read"}}</button></form></div>
       <table><thead><tr><th>{{t .Lang "label.title"}}</th><th>{{t .Lang "label.message"}}</th><th>{{t .Lang "label.status"}}</th><th></th></tr></thead><tbody>
         {{range .Notifications}}<tr><td>{{statusLabel .Title $.Lang}}</td><td>{{.Body}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{if eq .Status "unread"}}<form method="post" action="/notifications/{{.ID}}/read"><button class="small">{{t $.Lang "form.approve"}}</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
+      {{with index .DashboardPages "notifications"}}{{if gt .TotalPages 1}}<nav class="pagination compact" aria-label="通知分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t $.Lang "label.prev"}}</a>{{end}}{{range .Links}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t $.Lang "label.next"}}</a>{{end}}</nav>{{end}}{{end}}
     </section>
-    <section>
+    <section id="dashboard-watchlist">
       <h2>{{t .Lang "label.watchlist"}}</h2>
       <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.industry"}}</th><th>{{t .Lang "label.valuation"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>
         {{range .Watchlist}}<tr><td><a href="/companies/{{.CompanyID}}">{{.CompanyName}}</a></td><td>{{.Industry}}</td><td>{{.Valuation}}</td><td>{{statusLabel .TradableStatus $.Lang}}</td></tr>{{else}}<tr><td colspan="4">{{t $.Lang "empty"}}</td></tr>{{end}}
       </tbody></table>
+      {{with index .DashboardPages "watchlist"}}{{if gt .TotalPages 1}}<nav class="pagination compact" aria-label="关注分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t $.Lang "label.prev"}}</a>{{end}}{{range .Links}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t $.Lang "label.next"}}</a>{{end}}</nav>{{end}}{{end}}
     </section>
     <section class="grid two">
-      <div>
+      <div id="dashboard-companies">
         <h2>{{t .Lang "companies.title"}}</h2>
         <div class="list">
           {{range .Companies}}<a class="row-link" href="/companies/{{.ID}}"><strong>{{.Name}}</strong><span>{{.Industry}} · {{.Valuation}}</span></a>{{else}}<p>{{t $.Lang "empty"}}</p>{{end}}
         </div>
+        {{with index .DashboardPages "companies"}}{{if gt .TotalPages 1}}<nav class="pagination compact" aria-label="公司分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t $.Lang "label.prev"}}</a>{{end}}{{range .Links}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t $.Lang "label.next"}}</a>{{end}}</nav>{{end}}{{end}}
       </div>
-      <div>
+      <div id="dashboard-transactions">
         <h2>{{t .Lang "market.title"}}</h2>
         <table><thead><tr><th>{{t .Lang "label.company"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>
           {{range .Transactions}}<tr><td>{{.CompanyName}}</td><td>{{statusLabel .Stage $.Lang}}</td></tr>{{else}}<tr><td colspan="2">{{t $.Lang "empty"}}</td></tr>{{end}}
         </tbody></table>
+        {{with index .DashboardPages "transactions"}}{{if gt .TotalPages 1}}<nav class="pagination compact" aria-label="交易分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t $.Lang "label.prev"}}</a>{{end}}{{range .Links}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t $.Lang "label.next"}}</a>{{end}}</nav>{{end}}{{end}}
       </div>
     </section>
   </main>

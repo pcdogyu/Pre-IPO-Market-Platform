@@ -46,6 +46,7 @@ type pageData struct {
 	SellOrders        []domain.SellOrder
 	BuyInterests      []domain.BuyInterest
 	Transactions      []domain.Transaction
+	OpenTransactions  []domain.Transaction
 	Negotiations      []domain.Negotiation
 	Deals             []domain.Deal
 	Subscriptions     []domain.Subscription
@@ -84,6 +85,7 @@ type pageData struct {
 	PageLinks         []paginationLink
 	PrevPageURL       string
 	NextPageURL       string
+	DashboardPages    map[string]paginationGroup
 	Industries        []string
 	SearchQuery       string
 	SelectedIndustry  string
@@ -94,6 +96,14 @@ type paginationLink struct {
 	Label  string
 	URL    string
 	Active bool
+}
+
+type paginationGroup struct {
+	Page        int
+	TotalPages  int
+	Links       []paginationLink
+	PrevPageURL string
+	NextPageURL string
 }
 
 func NewServer(store *store.Store) *Server {
@@ -291,8 +301,8 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 	holdings, _ := s.store.Holdings(user.ID)
 	portfolioValues, portfolioSummary, _ := s.store.PortfolioValuations(user.ID)
 	watchlist, _ := s.store.Watchlist(user.ID)
-	complianceReviews, _ := s.store.ComplianceReviews(user, 5)
-	notifications, _ := s.store.Notifications(user.ID, 8)
+	complianceReviews, _ := s.store.ComplianceReviews(user, 10000)
+	notifications, _ := s.store.Notifications(user.ID, 10000)
 	stats := map[string]int{
 		"companies":    len(companies),
 		"transactions": len(transactions),
@@ -300,7 +310,14 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, user domain.U
 		"holdings":     len(holdings),
 		"watchlist":    len(watchlist),
 	}
-	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, ComplianceReviews: complianceReviews, Transactions: transactions, Deals: deals, Holdings: holdings, PortfolioValues: portfolioValues, PortfolioSummary: portfolioSummary, Notifications: notifications, Stats: stats, Error: r.URL.Query().Get("error")})
+	pages := map[string]paginationGroup{}
+	companies, pages["companies"] = paginateDashboardItems(r, "companies_page", "dashboard-companies", companies, 20)
+	watchlist, pages["watchlist"] = paginateDashboardItems(r, "watchlist_page", "dashboard-watchlist", watchlist, 20)
+	complianceReviews, pages["reviews"] = paginateDashboardItems(r, "reviews_page", "dashboard-reviews", complianceReviews, 20)
+	transactions, pages["transactions"] = paginateDashboardItems(r, "transactions_page", "dashboard-transactions", transactions, 20)
+	portfolioValues, pages["portfolio"] = paginateDashboardItems(r, "portfolio_page", "dashboard-portfolio", portfolioValues, 20)
+	notifications, pages["notifications"] = paginateDashboardItems(r, "notifications_page", "dashboard-notifications", notifications, 20)
+	s.render(w, r, "dashboard.html", pageData{Title: "Dashboard", User: user, Lang: user.Language, Companies: companies, Watchlist: watchlist, ComplianceReviews: complianceReviews, Transactions: transactions, Deals: deals, Holdings: holdings, PortfolioValues: portfolioValues, PortfolioSummary: portfolioSummary, Notifications: notifications, Stats: stats, DashboardPages: pages, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createComplianceReview(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -510,7 +527,8 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 		"buy_orders":   len(buyInterests),
 		"transactions": len(transactions),
 	}
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, Error: r.URL.Query().Get("error")})
+	openTransactions := filterOpenTransactions(transactions)
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, OpenTransactions: openTransactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createLiquidityRequest(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -1567,6 +1585,16 @@ func filterTransactionsByCompany(transactions []domain.Transaction, companyID in
 	return filtered
 }
 
+func filterOpenTransactions(transactions []domain.Transaction) []domain.Transaction {
+	filtered := make([]domain.Transaction, 0, len(transactions))
+	for _, transaction := range transactions {
+		if transaction.Stage != domain.StageSettled && transaction.Stage != domain.StageCancelled {
+			filtered = append(filtered, transaction)
+		}
+	}
+	return filtered
+}
+
 func filterNegotiationsByTransactions(negotiations []domain.Negotiation, transactions []domain.Transaction) []domain.Negotiation {
 	allowed := transactionIDSet(transactions)
 	filtered := make([]domain.Negotiation, 0, len(negotiations))
@@ -1630,6 +1658,66 @@ func companyIndustries(companies []domain.Company) []string {
 	}
 	sort.Strings(industries)
 	return industries
+}
+
+func paginateDashboardItems[T any](r *http.Request, param, anchor string, items []T, perPage int) ([]T, paginationGroup) {
+	if perPage <= 0 {
+		perPage = 20
+	}
+	totalPages := (len(items) + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	page, _ := strconv.Atoi(r.URL.Query().Get(param))
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	group := paginationGroup{
+		Page:        page,
+		TotalPages:  totalPages,
+		PrevPageURL: dashboardPageURL(r, param, page-1, anchor),
+		NextPageURL: dashboardPageURL(r, param, page+1, anchor),
+	}
+	if totalPages > 1 {
+		group.Links = dashboardPageLinks(r, param, anchor, page, totalPages)
+	}
+	start := (page - 1) * perPage
+	if start >= len(items) {
+		return nil, group
+	}
+	end := start + perPage
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end], group
+}
+
+func dashboardPageLinks(r *http.Request, param, anchor string, currentPage, totalPages int) []paginationLink {
+	links := make([]paginationLink, 0, totalPages)
+	for page := 1; page <= totalPages; page++ {
+		links = append(links, paginationLink{
+			Label:  strconv.Itoa(page),
+			URL:    dashboardPageURL(r, param, page, anchor),
+			Active: page == currentPage,
+		})
+	}
+	return links
+}
+
+func dashboardPageURL(r *http.Request, param string, page int, anchor string) string {
+	if page < 1 {
+		page = 1
+	}
+	values := r.URL.Query()
+	values.Set(param, strconv.Itoa(page))
+	url := "/dashboard?" + values.Encode()
+	if anchor != "" {
+		url += "#" + anchor
+	}
+	return url
 }
 
 func filterAndSortCompanies(companies []domain.Company, q, industry, sortBy string) []domain.Company {

@@ -16,6 +16,18 @@ command -v timeout >/dev/null 2>&1 || { echo "timeout is required"; exit 1; }
 command -v systemctl >/dev/null 2>&1 || { echo "systemd is required"; exit 1; }
 command -v journalctl >/dev/null 2>&1 || { echo "journalctl is required"; exit 1; }
 
+if [[ -z "${HOME:-}" ]]; then
+  if [[ "$(id -u)" -eq 0 ]]; then
+    export HOME="/root"
+  else
+    export HOME="$APP_DIR/.home"
+  fi
+fi
+export GOPATH="${GOPATH:-$HOME/go}"
+export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
+export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
+mkdir -p "$GOMODCACHE" "$GOCACHE"
+
 if [[ -n "$(git -C "$ROOT_DIR" status --porcelain)" ]]; then
   echo "working tree is not clean; commit or stash local changes before upgrade"
   git -C "$ROOT_DIR" status --short

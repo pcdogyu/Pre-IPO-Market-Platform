@@ -186,10 +186,13 @@ func TestDealsPageRendersPopularUSSPVProjects(t *testing.T) {
 		t.Fatalf("deals status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"SPV 项目介绍", "SpaceX 星链与航天专项 SPV", "OpenAI 基础模型专项 SPV", "美国市场高关注未上市公司"} {
+	for _, want := range []string{"SPV 项目介绍", "SpaceX 星链与航天专项 SPV", "OpenAI 基础模型专项 SPV", "美国市场高关注未上市公司", "专项载体 · 开放", "基金组合 · 开放", "直接二级转让 · 开放", "EN:", "下一页"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("deals page should render %q", want)
 		}
+	}
+	if cardCount := strings.Count(body, `<article class="card">`); cardCount != 9 {
+		t.Fatalf("deals page card count got %d, want 9", cardCount)
 	}
 }
 
@@ -352,13 +355,64 @@ func TestCompanyPageRendersMarketValueAndSharePriceCharts(t *testing.T) {
 		t.Fatalf("company status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"总市值历史", "每股价格历史", "chart-y-label", "chart-x-label"} {
+	for _, want := range []string{"总市值历史", "每股价格历史", "chart-grid", "chart-y-label", "chart-x-label"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("company page should render %q", want)
 		}
 	}
 	if tickCount := strings.Count(body, `class="chart-x-label"`); tickCount < 12 {
 		t.Fatalf("chart x-axis labels got %d, want at least 12", tickCount)
+	}
+}
+
+func TestCompanyPageLinksToScopedMarketAndDeals(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/companies/1", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("company status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`href="/market/orders?company_id=1"`, `href="/deals?company_id=1"`, `class="action-button active"`, "★", "取消关注"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("company page should render scoped action %q", want)
+		}
+	}
+}
+
+func TestMarketAndDealsCanFilterByCompany(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/market/orders?company_id=1", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"神经桥智能 · 买卖撮合市场", `option value="1" selected`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("market page should render selected company context %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/deals?company_id=1", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("deals status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	if !strings.Contains(body, "神经桥智能 · 项目载体认购") || !strings.Contains(body, "神经桥成长组合") {
+		t.Fatal("deals page should render selected company deal context")
+	}
+	if strings.Contains(body, "赫利欧电网专项载体一期") {
+		t.Fatal("deals page should not render other company deals when filtered")
 	}
 }
 
@@ -840,5 +894,35 @@ func TestAdminCanPublishCompanyUpdate(t *testing.T) {
 	}
 	if !strings.Contains(body, "公司更新已发布") {
 		t.Fatal("portfolio should render company update notification")
+	}
+}
+
+func TestAdminPageIncludesUpgradeWindow(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin")
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"upgradeOverlay", "系统升级", "30 秒后返回首页", "/admin/upgrade/logs"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("admin page should render upgrade window content %q", want)
+		}
+	}
+}
+
+func TestUpgradeLogsRejectsInvalidUnit(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin")
+	req := httptest.NewRequest(http.MethodGet, "/admin/upgrade/logs?unit=../../bad", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("upgrade logs status got %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }

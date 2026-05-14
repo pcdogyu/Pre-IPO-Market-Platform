@@ -184,31 +184,65 @@ func TestSeedDemoDataAddsCompanyFinancialReports(t *testing.T) {
 	}
 }
 
+func TestSeedDemoDataCreatesMixedValuationTrend(t *testing.T) {
+	s := testStore(t)
+	valuations, err := s.CompanyValuations(103)
+	if err != nil {
+		t.Fatalf("company valuations: %v", err)
+	}
+	if len(valuations) < 6 {
+		t.Fatalf("company 103 valuations got %d, want at least 6", len(valuations))
+	}
+	hasGain := false
+	hasDrop := false
+	for index := 1; index < len(valuations); index++ {
+		if valuations[index].SharePrice > valuations[index-1].SharePrice {
+			hasGain = true
+		}
+		if valuations[index].SharePrice < valuations[index-1].SharePrice {
+			hasDrop = true
+		}
+	}
+	if !hasGain || !hasDrop {
+		t.Fatalf("company 103 share price trend should include gains and drops: %+v", valuations)
+	}
+}
+
 func TestSeedDemoDataAddsPopularUSSPVProjects(t *testing.T) {
 	s := testStore(t)
 	deals, err := s.Deals()
 	if err != nil {
 		t.Fatalf("deals: %v", err)
 	}
-	popularCount := 0
+	typeCounts := map[string]int{}
 	hasSpaceX := false
 	hasOpenAI := false
+	hasBilingualIntro := false
 	for _, deal := range deals {
-		if strings.Contains(deal.Name, "SPV") && deal.DealType == "spv" {
-			popularCount++
-		}
+		typeCounts[deal.DealType]++
 		if deal.Name == "SpaceX 星链与航天专项 SPV" {
 			hasSpaceX = true
 		}
 		if deal.Name == "OpenAI 基础模型专项 SPV" {
 			hasOpenAI = true
 		}
+		if strings.Contains(deal.Structure, "EN:") {
+			hasBilingualIntro = true
+		}
 	}
-	if popularCount < 20 {
-		t.Fatalf("popular SPV projects got %d, want at least 20", popularCount)
+	if len(deals) < 50 {
+		t.Fatalf("deals got %d, want at least 50", len(deals))
 	}
 	if !hasSpaceX || !hasOpenAI {
 		t.Fatal("popular SPV projects should include SpaceX and OpenAI")
+	}
+	for _, dealType := range []string{"spv", "fund_basket", "direct_secondary"} {
+		if typeCounts[dealType] == 0 {
+			t.Fatalf("deal type %s should be present in generated projects", dealType)
+		}
+	}
+	if !hasBilingualIntro {
+		t.Fatal("generated projects should include bilingual introductions")
 	}
 	if err := s.SeedDemoData(); err != nil {
 		t.Fatalf("reseed: %v", err)

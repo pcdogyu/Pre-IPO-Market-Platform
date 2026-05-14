@@ -2,6 +2,7 @@ package http
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -36,6 +37,8 @@ type pageData struct {
 	Error             string
 	Companies         []domain.Company
 	Company           domain.Company
+	SelectedCompany   domain.Company
+	SelectedCompanyID int64
 	Watchlist         []domain.WatchlistItem
 	WatchlistMap      map[int64]bool
 	ComplianceReviews []domain.ComplianceReview
@@ -70,6 +73,17 @@ type pageData struct {
 	AuditLogs         []domain.AuditLog
 	Stats             map[string]int
 	BuildLabel        string
+	Page              int
+	TotalPages        int
+	PageLinks         []paginationLink
+	PrevPageURL       string
+	NextPageURL       string
+}
+
+type paginationLink struct {
+	Label  string
+	URL    string
+	Active bool
 }
 
 func NewServer(store *store.Store) *Server {
@@ -130,6 +144,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/support/tickets/reply", s.requireAuth(s.replySupportTicket))
 	mux.HandleFunc("/admin", s.requireAdmin(s.admin))
 	mux.HandleFunc("/admin/upgrade", s.requireAdmin(s.upgradeService))
+	mux.HandleFunc("/admin/upgrade/logs", s.requireAdmin(s.upgradeLogs))
 	mux.HandleFunc("/admin/companies/create", s.requireAdmin(s.createCompany))
 	mux.HandleFunc("/admin/deals/create", s.requireAdmin(s.createDeal))
 	mux.HandleFunc("/admin/deals/status", s.requireAdmin(s.updateDealStatus))
@@ -421,13 +436,22 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 	negotiations, _ := s.store.Negotiations(user)
 	approvals, _ := s.store.ExecutionApprovals(user)
 	escrowPayments, _ := s.store.EscrowPayments(user)
+	selectedCompanyID, selectedCompany := selectedCompanyFromRequest(r, companies)
+	if selectedCompanyID > 0 {
+		sellOrders = filterSellOrdersByCompany(sellOrders, selectedCompanyID)
+		buyInterests = filterBuyInterestsByCompany(buyInterests, selectedCompanyID)
+		transactions = filterTransactionsByCompany(transactions, selectedCompanyID)
+		negotiations = filterNegotiationsByTransactions(negotiations, transactions)
+		approvals = filterApprovalsByTransactions(approvals, transactions)
+		escrowPayments = filterEscrowPaymentsByTransactions(escrowPayments, transactions)
+	}
 	stats := map[string]int{
 		"companies":    len(companies),
 		"sell_orders":  len(sellOrders),
 		"buy_orders":   len(buyInterests),
 		"transactions": len(transactions),
 	}
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, Stats: stats, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, Stats: stats, Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -545,11 +569,24 @@ func (s *Server) createNegotiation(w http.ResponseWriter, r *http.Request, user 
 }
 
 func (s *Server) deals(w http.ResponseWriter, r *http.Request, user domain.User) {
+	companies, _ := s.store.Companies()
 	deals, _ := s.store.Deals()
 	spvs, _ := s.store.SPVVehicles()
 	subscriptions, _ := s.store.Subscriptions(user)
 	subDocuments, _ := s.store.SubscriptionDocuments(user)
-	s.render(w, r, "deals.html", pageData{Title: "Deals", User: user, Lang: user.Language, Deals: deals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Error: r.URL.Query().Get("error")})
+	selectedCompanyID, selectedCompany := selectedCompanyFromRequest(r, companies)
+	if selectedCompanyID > 0 {
+		deals = filterDealsByCompany(deals, selectedCompanyID)
+		spvs = filterSPVsByDeals(spvs, deals)
+		subscriptions = filterSubscriptionsByDeals(subscriptions, deals)
+		subDocuments = filterSubscriptionDocumentsByDeals(subDocuments, deals)
+	}
+	pagedDeals, page, totalPages := paginateDeals(deals, dealPageFromRequest(r), 9)
+	pageLinks := dealPageLinks(r, page, totalPages)
+	spvs = filterSPVsByDeals(spvs, pagedDeals)
+	subscriptions = filterSubscriptionsByDeals(subscriptions, pagedDeals)
+	subDocuments = filterSubscriptionDocumentsByDeals(subDocuments, pagedDeals)
+	s.render(w, r, "deals.html", pageData{Title: "Deals", User: user, Lang: user.Language, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, Deals: pagedDeals, SPVs: spvs, Subscriptions: subscriptions, SubDocuments: subDocuments, Page: page, TotalPages: totalPages, PageLinks: pageLinks, PrevPageURL: dealPageURL(r, page-1), NextPageURL: dealPageURL(r, page+1), Error: r.URL.Query().Get("error")})
 }
 
 func (s *Server) createDeal(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -765,8 +802,73 @@ func (s *Server) upgradeService(w http.ResponseWriter, r *http.Request, user dom
 		http.Error(w, "upgrade start failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Release()
+	}
+	if wantsJSON(r) {
+		writeJSON(w, map[string]string{
+			"status":  "started",
+			"unit":    unit,
+			"message": fmt.Sprintf("升级任务已启动：%s", unit),
+		})
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = fmt.Fprintf(w, "升级已启动，请稍后刷新页面。日志查看：journalctl -u %s -f\n", unit)
+}
+
+func (s *Server) upgradeLogs(w http.ResponseWriter, r *http.Request, user domain.User) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	unit := r.URL.Query().Get("unit")
+	if !validUpgradeUnit(unit) {
+		http.Error(w, "invalid unit", http.StatusBadRequest)
+		return
+	}
+	journalctl, err := exec.LookPath("journalctl")
+	if err != nil {
+		writeJSON(w, map[string]string{
+			"status": "unavailable",
+			"logs":   "当前环境无法读取 journalctl，升级任务已在后台运行。",
+		})
+		return
+	}
+	out, err := exec.Command(journalctl, "-u", unit, "-n", "80", "--no-pager").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		writeJSON(w, map[string]string{
+			"status": "pending",
+			"logs":   "等待升级日志输出...",
+		})
+		return
+	}
+	writeJSON(w, map[string]string{
+		"status": "ok",
+		"logs":   strings.TrimSpace(string(out)),
+	})
+}
+
+func wantsJSON(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("async") == "1"
+}
+
+func writeJSON(w http.ResponseWriter, value any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(value)
+}
+
+func validUpgradeUnit(unit string) bool {
+	if !strings.HasPrefix(unit, "preipo-market-upgrade-") {
+		return false
+	}
+	for _, r := range unit {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			continue
+		}
+		return false
+	}
+	return len(unit) > len("preipo-market-upgrade-")
 }
 
 func (s *Server) createMatch(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -1318,6 +1420,203 @@ func parseOrderForm(r *http.Request) (int64, int64, float64, error) {
 		return 0, 0, 0, fmt.Errorf("invalid order")
 	}
 	return companyID, shares, price, nil
+}
+
+func selectedCompanyFromRequest(r *http.Request, companies []domain.Company) (int64, domain.Company) {
+	companyID, _ := strconv.ParseInt(r.URL.Query().Get("company_id"), 10, 64)
+	if companyID <= 0 {
+		return 0, domain.Company{}
+	}
+	for _, company := range companies {
+		if company.ID == companyID {
+			return companyID, company
+		}
+	}
+	return 0, domain.Company{}
+}
+
+func filterSellOrdersByCompany(orders []domain.SellOrder, companyID int64) []domain.SellOrder {
+	filtered := make([]domain.SellOrder, 0, len(orders))
+	for _, order := range orders {
+		if order.CompanyID == companyID {
+			filtered = append(filtered, order)
+		}
+	}
+	return filtered
+}
+
+func filterBuyInterestsByCompany(interests []domain.BuyInterest, companyID int64) []domain.BuyInterest {
+	filtered := make([]domain.BuyInterest, 0, len(interests))
+	for _, interest := range interests {
+		if interest.CompanyID == companyID {
+			filtered = append(filtered, interest)
+		}
+	}
+	return filtered
+}
+
+func filterTransactionsByCompany(transactions []domain.Transaction, companyID int64) []domain.Transaction {
+	filtered := make([]domain.Transaction, 0, len(transactions))
+	for _, transaction := range transactions {
+		if transaction.CompanyID == companyID {
+			filtered = append(filtered, transaction)
+		}
+	}
+	return filtered
+}
+
+func filterNegotiationsByTransactions(negotiations []domain.Negotiation, transactions []domain.Transaction) []domain.Negotiation {
+	allowed := transactionIDSet(transactions)
+	filtered := make([]domain.Negotiation, 0, len(negotiations))
+	for _, negotiation := range negotiations {
+		if allowed[negotiation.TransactionID] {
+			filtered = append(filtered, negotiation)
+		}
+	}
+	return filtered
+}
+
+func filterApprovalsByTransactions(approvals []domain.ExecutionApproval, transactions []domain.Transaction) []domain.ExecutionApproval {
+	allowed := transactionIDSet(transactions)
+	filtered := make([]domain.ExecutionApproval, 0, len(approvals))
+	for _, approval := range approvals {
+		if allowed[approval.TransactionID] {
+			filtered = append(filtered, approval)
+		}
+	}
+	return filtered
+}
+
+func filterEscrowPaymentsByTransactions(payments []domain.EscrowPayment, transactions []domain.Transaction) []domain.EscrowPayment {
+	allowed := transactionIDSet(transactions)
+	filtered := make([]domain.EscrowPayment, 0, len(payments))
+	for _, payment := range payments {
+		if allowed[payment.TransactionID] {
+			filtered = append(filtered, payment)
+		}
+	}
+	return filtered
+}
+
+func transactionIDSet(transactions []domain.Transaction) map[int64]bool {
+	allowed := make(map[int64]bool, len(transactions))
+	for _, transaction := range transactions {
+		allowed[transaction.ID] = true
+	}
+	return allowed
+}
+
+func filterDealsByCompany(deals []domain.Deal, companyID int64) []domain.Deal {
+	filtered := make([]domain.Deal, 0, len(deals))
+	for _, deal := range deals {
+		if deal.CompanyID == companyID {
+			filtered = append(filtered, deal)
+		}
+	}
+	return filtered
+}
+
+func dealPageFromRequest(r *http.Request) int {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		return 1
+	}
+	return page
+}
+
+func paginateDeals(deals []domain.Deal, page, perPage int) ([]domain.Deal, int, int) {
+	if perPage <= 0 {
+		perPage = 9
+	}
+	totalPages := (len(deals) + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * perPage
+	if start >= len(deals) {
+		return nil, page, totalPages
+	}
+	end := start + perPage
+	if end > len(deals) {
+		end = len(deals)
+	}
+	return deals[start:end], page, totalPages
+}
+
+func dealPageLinks(r *http.Request, currentPage, totalPages int) []paginationLink {
+	links := make([]paginationLink, 0, totalPages)
+	for page := 1; page <= totalPages; page++ {
+		links = append(links, paginationLink{
+			Label:  strconv.Itoa(page),
+			URL:    dealPageURL(r, page),
+			Active: page == currentPage,
+		})
+	}
+	return links
+}
+
+func dealPageURL(r *http.Request, page int) string {
+	if page < 1 {
+		page = 1
+	}
+	values := r.URL.Query()
+	values.Set("page", strconv.Itoa(page))
+	return "/deals?" + values.Encode()
+}
+
+func filterSPVsByDeals(vehicles []domain.SPVVehicle, deals []domain.Deal) []domain.SPVVehicle {
+	allowed := dealIDSet(deals)
+	filtered := make([]domain.SPVVehicle, 0, len(vehicles))
+	for _, vehicle := range vehicles {
+		if allowed[vehicle.DealID] {
+			filtered = append(filtered, vehicle)
+		}
+	}
+	return filtered
+}
+
+func filterSubscriptionsByDeals(subscriptions []domain.Subscription, deals []domain.Deal) []domain.Subscription {
+	allowed := dealIDSet(deals)
+	filtered := make([]domain.Subscription, 0, len(subscriptions))
+	for _, subscription := range subscriptions {
+		if allowed[subscription.DealID] {
+			filtered = append(filtered, subscription)
+		}
+	}
+	return filtered
+}
+
+func filterSubscriptionDocumentsByDeals(documents []domain.SubscriptionDocument, deals []domain.Deal) []domain.SubscriptionDocument {
+	allowed := dealNameSet(deals)
+	filtered := make([]domain.SubscriptionDocument, 0, len(documents))
+	for _, document := range documents {
+		if allowed[document.DealName] {
+			filtered = append(filtered, document)
+		}
+	}
+	return filtered
+}
+
+func dealIDSet(deals []domain.Deal) map[int64]bool {
+	allowed := make(map[int64]bool, len(deals))
+	for _, deal := range deals {
+		allowed[deal.ID] = true
+	}
+	return allowed
+}
+
+func dealNameSet(deals []domain.Deal) map[string]bool {
+	allowed := make(map[string]bool, len(deals))
+	for _, deal := range deals {
+		allowed[deal.Name] = true
+	}
+	return allowed
 }
 
 func pathID(path, prefix string) (int64, error) {

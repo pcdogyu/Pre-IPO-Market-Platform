@@ -4,7 +4,7 @@
 <body>
   <header class="topbar"><a class="brand" href="/dashboard">{{t .Lang "app.title"}}</a><nav><a href="/dashboard">{{t .Lang "nav.dashboard"}}</a><a href="/companies">{{t .Lang "nav.companies"}}</a><a href="/market/orders">{{t .Lang "nav.market"}}</a><a href="/deals">{{t .Lang "nav.deals"}}</a><a href="/portfolio">{{t .Lang "nav.portfolio"}}</a>{{if canAdmin .User.Role}}<a href="/admin">{{t .Lang "nav.admin"}}</a>{{end}}</nav><div class="session">{{if canAdmin .User.Role}}<form method="post" action="/admin/upgrade" class="upgrade-form"><button class="nav-button">{{t .Lang "nav.upgrade"}}</button></form>{{end}}<a href="/language?lang={{switchLang .Lang}}">{{t .Lang "language.switch"}}</a><a href="/logout">{{t .Lang "nav.logout"}}</a></div></header>
   <main class="container">
-    <section class="page-head"><div><p class="eyebrow">项目载体</p><h1>{{t .Lang "deals.title"}}</h1></div></section>
+    <section class="page-head"><div><p class="eyebrow">项目载体</p><h1>{{if .SelectedCompanyID}}{{.SelectedCompany.Name}} · {{end}}{{t .Lang "deals.title"}}</h1></div>{{if .SelectedCompanyID}}<a class="button secondary" href="/companies/{{.SelectedCompanyID}}">{{t .Lang "label.view"}}</a>{{end}}</section>
     {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
     <section class="panel">
       <h2>{{t .Lang "label.spv_project_intro"}}</h2>
@@ -16,13 +16,14 @@
         <div class="card-head"><h2>{{.Name}}</h2><span class="badge">{{statusLabel .DealType $.Lang}} · {{statusLabel .Status $.Lang}}</span></div>
         <p>{{.CompanyName}}</p>
         <p><strong>{{t $.Lang "label.spv_project_intro"}}</strong></p>
-        <p class="muted">{{.Structure}}</p>
+        <p class="muted deal-intro">{{.Structure}}</p>
         <dl class="facts"><div><dt>{{t $.Lang "label.minimum"}}</dt><dd>{{money .MinSubscription}}</dd></div><div><dt>{{t $.Lang "label.target"}}</dt><dd>{{money .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.subscribed"}}</dt><dd>{{money .SubscribedAmount}} · {{percent .SubscribedAmount .TargetSize}}</dd></div><div><dt>{{t $.Lang "label.remaining"}}</dt><dd>{{money .RemainingAmount}}</dd></div></dl>
         <p class="muted">{{t $.Lang "label.fees"}}: {{.FeeDescription}}</p>
         {{if and (canBuy $.User) (eq .Status "open")}}<form method="post" action="/deals/{{.ID}}/subscribe" class="inline-form"><input name="amount" type="number" min="{{.MinSubscription}}" max="{{.RemainingAmount}}" value="{{printf "%.0f" .MinSubscription}}"><button>{{t $.Lang "action.subscribe"}}</button></form>{{end}}
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>
+    {{if gt .TotalPages 1}}<nav class="pagination" aria-label="项目分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">上一页</a>{{end}}{{range .PageLinks}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">下一页</a>{{end}}</nav>{{end}}
     <section><h2>{{t .Lang "label.spv_vehicles"}}</h2><table><thead><tr><th>{{t .Lang "label.vehicle"}}</th><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.jurisdiction"}}</th><th>{{t .Lang "label.class"}}</th><th>{{t .Lang "label.units"}}</th><th>{{t .Lang "label.utilization"}}</th></tr></thead><tbody>{{range .SPVs}}<tr><td>{{.Name}}</td><td>{{.DealName}}</td><td>{{statusLabel .Jurisdiction $.Lang}}</td><td>{{statusLabel .ShareClass $.Lang}}</td><td>{{.IssuedUnits}} / {{.TotalUnits}}</td><td>{{percent .IssuedUnits .TotalUnits}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section><h2>{{t .Lang "label.subscriptions"}}</h2><table><thead><tr><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.amount"}}</th><th>{{t .Lang "label.status"}}</th></tr></thead><tbody>{{range .Subscriptions}}<tr><td>{{.DealName}}</td><td>{{money .Amount}}</td><td>{{statusLabel .Status $.Lang}}</td></tr>{{else}}<tr><td colspan="3">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>
     <section><h2>{{t .Lang "label.subscription_documents"}}</h2><table><thead><tr><th>{{t .Lang "label.subscription"}}</th><th>{{t .Lang "label.deal"}}</th><th>{{t .Lang "label.document"}}</th><th>{{t .Lang "label.status"}}</th><th>{{t .Lang "label.signed"}}</th><th>{{t .Lang "label.note"}}</th></tr></thead><tbody>{{range .SubDocuments}}<tr><td>#{{.SubscriptionID}}</td><td>{{.DealName}}</td><td>{{statusLabel .DocumentType $.Lang}}</td><td>{{statusLabel .Status $.Lang}}</td><td>{{.SignedAt}}</td><td>{{.Note}}</td></tr>{{else}}<tr><td colspan="6">{{t $.Lang "empty"}}</td></tr>{{end}}</tbody></table></section>

@@ -524,7 +524,7 @@ type popularUSSPVSeed struct {
 }
 
 func popularUSSPVSeeds() []popularUSSPVSeed {
-	return []popularUSSPVSeed{
+	seeds := []popularUSSPVSeed{
 		{"SpaceX", "航天与卫星互联网", "$350.0B", "Pre-IPO轮", 185.00, "美国商业航天、发射服务与卫星互联网公司，二级市场关注度长期居前。", "优先购买权 + 公司同意", "SpaceX 星链与航天专项 SPV", "聚焦 SpaceX 存量股份转让机会，底层资产覆盖商业发射、星链网络和航天基础设施增长主题。", 100000, 25000000, "2% 年度管理费，退出后 10% 业绩分成"},
 		{"OpenAI", "人工智能基础模型", "$300.0B", "Pre-IPO轮", 168.00, "美国人工智能基础模型与企业 AI 平台公司，围绕模型、应用和算力生态持续扩张。", "公司同意 + 合格投资人限制", "OpenAI 基础模型专项 SPV", "面向 OpenAI 相关普通股或优先股二级份额，关注企业 AI 采用、模型订阅和开发者生态。", 100000, 22000000, "2% 年度管理费，退出后 12% 业绩分成"},
 		{"Anthropic", "人工智能安全与模型", "$180.0B", "增长轮", 132.00, "美国 AI 安全与大模型公司，企业级 Claude 产品线获得高关注。", "公司同意 + 转让窗口限制", "Anthropic 企业 AI 专项 SPV", "聚焦 Anthropic 二级份额，跟踪企业大模型部署、云平台合作和安全对齐能力。", 75000, 18000000, "1.8% 年度管理费，退出后 10% 业绩分成"},
@@ -546,6 +546,61 @@ func popularUSSPVSeeds() []popularUSSPVSeed {
 		{"Flexport", "数字货运与供应链", "$8.0B", "增长轮", 24.00, "美国数字货运代理和全球供应链管理平台。", "公司同意 + 信息权限制", "Flexport 供应链科技 SPV", "围绕 Flexport 二级份额，关注跨境货运、供应链可视化和物流软件化。", 50000, 7000000, "1.4% 年度管理费，退出后 8% 业绩分成"},
 		{"Gusto", "薪资与中小企业平台", "$10.0B", "增长轮", 27.00, "美国中小企业薪资、人事、福利和合规平台。", "优先购买权 + 公司同意", "Gusto SMB 薪资平台 SPV", "聚焦 Gusto 股权流动性，关注 SMB 薪资、福利、税务合规和雇主服务网络。", 50000, 7000000, "1.4% 年度管理费，退出后 8% 业绩分成"},
 	}
+	for _, seed := range generatedPopularUSSPVSeeds() {
+		seeds = append(seeds, seed)
+	}
+	return seeds
+}
+
+func generatedPopularUSSPVSeeds() []popularUSSPVSeed {
+	names := []string{
+		"Canva", "Mistral AI", "Perplexity", "CoreWeave", "Cerebras", "Figma", "Klarna", "Revolut", "Checkout.com",
+		"Brex", "Mercury", "Navan", "Vercel", "Linear", "Hugging Face", "Character.AI", "Sierra", "Harvey",
+		"Faire", "Bolt", "Instacart", "Turo", "Impossible Foods", "Sila Nanotechnologies", "Redwood Materials",
+		"Commonwealth Fusion", "Relativity Space",
+	}
+	industries := []string{"设计协作软件", "人工智能基础模型", "AI 搜索", "云算力基础设施", "AI 芯片", "产品设计平台", "金融科技", "数字银行", "支付基础设施", "企业金融", "企业银行", "商旅管理", "开发者平台", "项目协作软件", "开源 AI 平台", "消费者 AI", "企业智能客服", "法律科技", "批发电商", "电商支付", "消费者平台", "出行平台", "食品科技", "电池材料", "电池回收", "聚变能源", "商业航天"}
+	rounds := []string{"增长轮", "Pre-IPO轮", "E轮", "D轮"}
+	seeds := make([]popularUSSPVSeed, 0, len(names))
+	for index, name := range names {
+		industry := industries[index%len(industries)]
+		valuation := fmt.Sprintf("$%.1fB", 7.5+float64((index*17)%180)/2)
+		price := 24 + float64((index*9)%145)
+		targetSize := float64(6500000 + (index%9)*1250000)
+		minimum := float64(50000)
+		if index%5 == 0 {
+			minimum = 75000
+		}
+		dealName := generatedDealName(name, index)
+		intro := fmt.Sprintf("围绕 %s 二级份额构建模拟项目，关注%s赛道的增长、转让审批和退出回款节奏。", name, industry)
+		description := fmt.Sprintf("美国高关注未上市公司，业务覆盖%s，适合作为二级市场流动性演示资产。", industry)
+		seeds = append(seeds, popularUSSPVSeed{
+			name:            name,
+			industry:        industry,
+			valuation:       valuation,
+			round:           rounds[index%len(rounds)],
+			sharePrice:      price,
+			description:     description,
+			restrictions:    "公司同意 + 合格投资人限制",
+			dealName:        dealName,
+			intro:           intro,
+			minSubscription: minimum,
+			targetSize:      targetSize,
+			feeDescription:  fmt.Sprintf("%.1f%% 年度管理费，退出后 %d%% 业绩分成", 1.4+float64(index%5)*0.1, 8+index%5),
+		})
+	}
+	return seeds
+}
+
+func generatedDealName(companyName string, index int) string {
+	switch demoDealType(index + 20) {
+	case "fund_basket":
+		return companyName + " 成长基金组合"
+	case "direct_secondary":
+		return companyName + " 直接二级转让"
+	default:
+		return companyName + " 专项 SPV"
+	}
 }
 
 func (s *Store) ensurePopularUSSPVProjects() error {
@@ -559,7 +614,7 @@ func (s *Store) ensurePopularUSSPVProjects() error {
 		if err != nil {
 			return err
 		}
-		dealID, err := ensureSeedSPVDeal(tx, companyID, seed)
+		dealID, err := ensureSeedSPVDeal(tx, companyID, seed, index)
 		if err != nil {
 			return err
 		}
@@ -587,23 +642,34 @@ func ensureSeedCompany(tx *sql.Tx, seed popularUSSPVSeed) (int64, error) {
 	return res.LastInsertId()
 }
 
-func ensureSeedSPVDeal(tx *sql.Tx, companyID int64, seed popularUSSPVSeed) (int64, error) {
+func ensureSeedSPVDeal(tx *sql.Tx, companyID int64, seed popularUSSPVSeed, index int) (int64, error) {
+	dealType := demoDealType(index)
+	intro := bilingualDealIntro(seed)
 	var dealID int64
 	err := tx.QueryRow(`SELECT id FROM deals WHERE name = ?`, seed.dealName).Scan(&dealID)
 	if err == nil {
-		_, err = tx.Exec(`UPDATE deals SET company_id = ?, deal_type = 'spv', structure = ?, min_subscription = ?, target_size = ?, fee_description = ?, status = 'open' WHERE id = ?`,
-			companyID, seed.intro, seed.minSubscription, seed.targetSize, seed.feeDescription, dealID)
+		_, err = tx.Exec(`UPDATE deals SET company_id = ?, deal_type = ?, structure = ?, min_subscription = ?, target_size = ?, fee_description = ?, status = 'open' WHERE id = ?`,
+			companyID, dealType, intro, seed.minSubscription, seed.targetSize, seed.feeDescription, dealID)
 		return dealID, err
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, err
 	}
-	res, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES (?, ?, 'spv', ?, ?, ?, ?, 'open')`,
-		companyID, seed.dealName, seed.intro, seed.minSubscription, seed.targetSize, seed.feeDescription)
+	res, err := tx.Exec(`INSERT INTO deals (company_id, name, deal_type, structure, min_subscription, target_size, fee_description, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'open')`,
+		companyID, seed.dealName, dealType, intro, seed.minSubscription, seed.targetSize, seed.feeDescription)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+func demoDealType(index int) string {
+	types := []string{"spv", "fund_basket", "direct_secondary", "spv", "direct_secondary", "fund_basket", "spv"}
+	return types[index%len(types)]
+}
+
+func bilingualDealIntro(seed popularUSSPVSeed) string {
+	return seed.intro + "\nEN: This simulated project tracks secondary access to " + seed.name + ", including transfer approvals, subscription documents, investor allocation and exit proceeds."
 }
 
 func ensureSeedSPVVehicle(tx *sql.Tx, dealID int64, seed popularUSSPVSeed, index int) error {
@@ -690,36 +756,42 @@ func (s *Store) ensureDemoDepth() error {
 	if err := s.ensurePopularUSSPVProjects(); err != nil {
 		return err
 	}
+	if err := s.ensureCoreDealIntroductions(); err != nil {
+		return err
+	}
 
 	companies, err := s.Companies()
 	if err != nil {
 		return err
 	}
 	dates := []string{"2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31", "2026-05-13"}
+	pricePattern := []float64{0.90, 1.00, 0.96, 1.08, 1.03, 1.12}
 	for _, company := range companies {
-		var valuationCount int
-		if err := s.db.QueryRow(`SELECT COUNT(*) FROM valuations WHERE company_id = ?`, company.ID).Scan(&valuationCount); err != nil {
-			return err
+		base := company.SharePrice
+		if base <= 0 {
+			base = 20
 		}
-		if valuationCount < len(dates) {
-			base := company.SharePrice
-			if base <= 0 {
-				base = 20
+		companyTilt := float64(company.ID%7) * 0.008
+		shareBase := float64(90+company.ID%40) / 1000
+		for idx, date := range dates {
+			wave := pricePattern[idx] + companyTilt
+			if idx%2 == 0 {
+				wave -= float64(company.ID%3) * 0.006
 			}
-			for idx, date := range dates {
-				var exists int
-				if err := s.db.QueryRow(`SELECT COUNT(*) FROM valuations WHERE company_id = ? AND as_of_date = ?`, company.ID, date).Scan(&exists); err != nil {
+			price := base * wave
+			valuation := fmt.Sprintf("$%.1fB", price*shareBase)
+			var exists int
+			if err := s.db.QueryRow(`SELECT COUNT(*) FROM valuations WHERE company_id = ? AND as_of_date = ?`, company.ID, date).Scan(&exists); err != nil {
+				return err
+			}
+			if exists > 0 {
+				if _, err := s.db.Exec(`UPDATE valuations SET valuation = ?, share_price = ? WHERE company_id = ? AND as_of_date = ?`, valuation, price, company.ID, date); err != nil {
 					return err
 				}
-				if exists > 0 {
-					continue
-				}
-				multiplier := 0.78 + float64(idx)*0.055 + float64(company.ID%5)*0.01
-				price := base * multiplier
-				valuation := fmt.Sprintf("$%.1fB", price*float64(90+company.ID%40)/1000)
-				if _, err := s.db.Exec(`INSERT INTO valuations (company_id, valuation, share_price, as_of_date) VALUES (?, ?, ?, ?)`, company.ID, valuation, price, date); err != nil {
-					return err
-				}
+				continue
+			}
+			if _, err := s.db.Exec(`INSERT INTO valuations (company_id, valuation, share_price, as_of_date) VALUES (?, ?, ?, ?)`, company.ID, valuation, price, date); err != nil {
+				return err
 			}
 		}
 
@@ -759,6 +831,20 @@ func (s *Store) ensureDemoDepth() error {
 		amount := float64(25000 + (i%12)*15000)
 		price := company.SharePrice * (0.95 + float64(i%6)*0.012)
 		if _, err := s.db.Exec(`INSERT INTO buy_interests (investor_id, company_id, amount, target_price, status) VALUES (2, ?, ?, ?, ?)`, company.ID, amount, price, string(domain.StageInterestSubmitted)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) ensureCoreDealIntroductions() error {
+	updates := map[string]string{
+		"赫利欧电网专项载体一期": "单一公司专项载体，提供季度报告\nEN: Single-company SPV with quarterly reporting, subscription workflow and exit distribution tracking.",
+		"神经桥成长组合":     "多公司成长组合，按比例分配份额\nEN: Growth fund basket allocating exposure across selected private-company interests.",
+		"量子支付直接转让":    "面向已批准买方的协商式股份转让\nEN: Direct secondary transfer workflow for approved buyers, including negotiation and company approval.",
+	}
+	for name, intro := range updates {
+		if _, err := s.db.Exec(`UPDATE deals SET structure = ? WHERE name = ?`, intro, name); err != nil {
 			return err
 		}
 	}

@@ -1,3 +1,92 @@
 {{define "footer.html"}}
   <footer class="app-footer">{{.BuildLabel}}</footer>
+  <div class="upgrade-overlay" id="upgradeOverlay" hidden>
+    <section class="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgradeTitle">
+      <div class="upgrade-dialog-head">
+        <h2 id="upgradeTitle">系统升级</h2>
+        <span id="upgradeCountdown">30 秒后返回首页</span>
+      </div>
+      <div class="upgrade-status" id="upgradeStatus">正在启动升级任务...</div>
+      <pre class="upgrade-log" id="upgradeLog">等待升级日志输出...</pre>
+    </section>
+  </div>
+  <script>
+    (function () {
+      var forms = document.querySelectorAll(".upgrade-form");
+      if (!forms.length) return;
+      var overlay = document.getElementById("upgradeOverlay");
+      var status = document.getElementById("upgradeStatus");
+      var log = document.getElementById("upgradeLog");
+      var countdown = document.getElementById("upgradeCountdown");
+
+      function showUpgradeWindow() {
+        overlay.hidden = false;
+        status.textContent = "正在启动升级任务...";
+        log.textContent = "等待升级日志输出...";
+      }
+
+      function appendLog(text) {
+        log.textContent = text || "等待升级日志输出...";
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function startCountdown() {
+        var remaining = 30;
+        countdown.textContent = remaining + " 秒后返回首页";
+        var timer = window.setInterval(function () {
+          remaining -= 1;
+          countdown.textContent = remaining + " 秒后返回首页";
+          if (remaining <= 0) window.clearInterval(timer);
+        }, 1000);
+        window.setTimeout(function () {
+          window.location.href = "/dashboard";
+        }, 30000);
+      }
+
+      function pollLogs(unit) {
+        if (!unit) return;
+        var endpoint = "/admin/upgrade/logs?unit=" + encodeURIComponent(unit);
+        var timer = window.setInterval(function () {
+          fetch(endpoint, { headers: { "Accept": "application/json" } })
+            .then(function (response) {
+              if (!response.ok) throw new Error("日志读取失败：" + response.status);
+              return response.json();
+            })
+            .then(function (data) {
+              appendLog(data.logs);
+            })
+            .catch(function (error) {
+              appendLog(log.textContent + "\n" + error.message);
+            });
+        }, 2000);
+        window.setTimeout(function () { window.clearInterval(timer); }, 30000);
+      }
+
+      forms.forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          showUpgradeWindow();
+          startCountdown();
+          fetch(form.action + "?async=1", {
+            method: "POST",
+            headers: { "Accept": "application/json" },
+            body: new FormData(form)
+          })
+            .then(function (response) {
+              if (!response.ok) throw new Error("升级启动失败：" + response.status);
+              return response.json();
+            })
+            .then(function (data) {
+              status.textContent = data.message || "升级任务已启动";
+              appendLog("升级任务已启动。\n日志单元：" + (data.unit || "后台任务"));
+              pollLogs(data.unit);
+            })
+            .catch(function (error) {
+              status.textContent = "升级启动失败";
+              appendLog(error.message);
+            });
+        });
+      });
+    })();
+  </script>
 {{end}}

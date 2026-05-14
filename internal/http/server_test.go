@@ -98,7 +98,7 @@ func TestUsersCanCancelOpenOrders(t *testing.T) {
 		t.Fatalf("cancel sell order status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/market/orders", nil)
+	req = httptest.NewRequest(http.MethodGet, "/market/orders?sell_page=999", nil)
 	req.AddCookie(sellerCookie)
 	rec = httptest.NewRecorder()
 	app.ServeHTTP(rec, req)
@@ -380,6 +380,42 @@ func TestDashboardPaginatesLongSections(t *testing.T) {
 	}
 }
 
+func TestCompaniesPagePaginatesNineCompanies(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/companies?sort=name", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("companies status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if cardCount := strings.Count(body, `<article class="card">`); cardCount != 9 {
+		t.Fatalf("companies card count got %d, want 9", cardCount)
+	}
+	for _, want := range []string{`page=2`, `sort=name`, "下一页"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("companies pagination should render %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/companies?sort=name&page=2", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("companies page 2 status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	if cardCount := strings.Count(body, `<article class="card">`); cardCount != 9 {
+		t.Fatalf("companies page 2 card count got %d, want 9", cardCount)
+	}
+	if !strings.Contains(body, `page=1`) || !strings.Contains(body, "上一页") {
+		t.Fatal("companies page 2 should render previous pagination link")
+	}
+}
+
 func TestCompanyPageRendersMarketValueAndSharePriceCharts(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor")
@@ -457,6 +493,42 @@ func TestMarketAndDealsCanFilterByCompany(t *testing.T) {
 	}
 }
 
+func TestMarketOrdersPaginatesBuyAndSellRecords(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin")
+	req := httptest.NewRequest(http.MethodGet, "/market/orders", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if rows := countRowsBetween(body, `<div id="market-sell-orders">`, `<div id="market-buy-interests">`); rows != 10 {
+		t.Fatalf("sell order rows got %d, want 10", rows)
+	}
+	if rows := countRowsBetween(body, `<div id="market-buy-interests">`, `<section><h2>`); rows != 10 {
+		t.Fatalf("buy interest rows got %d, want 10", rows)
+	}
+	for _, want := range []string{`sell_page=2`, `buy_page=2`, `#market-sell-orders`, `#market-buy-interests`, "下一页"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("market pagination should render %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/market/orders?sell_page=2&buy_page=2", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market page 2 status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	if !strings.Contains(body, `sell_page=1`) || !strings.Contains(body, `buy_page=1`) || !strings.Contains(body, "上一页") {
+		t.Fatal("market page 2 should render previous pagination links")
+	}
+}
+
 func TestMarketShowsEmptyNegotiationStateForCompanyWithoutTransactions(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor")
@@ -473,6 +545,19 @@ func TestMarketShowsEmptyNegotiationStateForCompanyWithoutTransactions(t *testin
 			t.Fatalf("market page should render %q", want)
 		}
 	}
+}
+
+func countRowsBetween(body, startMarker, endMarker string) int {
+	start := strings.Index(body, startMarker)
+	if start < 0 {
+		return 0
+	}
+	section := body[start:]
+	end := strings.Index(section, endMarker)
+	if end >= 0 {
+		section = section[:end]
+	}
+	return strings.Count(section, "<tr><td>")
 }
 
 func TestCompanyPageRendersFinancialReports(t *testing.T) {

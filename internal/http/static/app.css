@@ -127,10 +127,44 @@ dd { margin: 0; font-weight: 800; }
 .upgrade-status { border: 1px solid #b7e4dc; background: #e6f4f1; color: var(--brand-dark); border-radius: 8px; padding: 10px 12px; font-weight: 800; }
 .upgrade-log { min-height: 220px; max-height: 430px; overflow: auto; margin: 0; border: 1px solid var(--line); border-radius: 8px; background: #111827; color: #d1fae5; padding: 14px; white-space: pre-wrap; word-break: break-word; font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
 
+.admin-container { width: min(1760px, calc(100% - 24px)); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; font-size: 13px; }
+.admin-container .page-head, .admin-container .alert { grid-column: 1 / -1; margin-bottom: 4px; }
+.admin-container > section { min-width: 0; margin: 0; }
+.admin-container > section.grid { display: contents; }
+.admin-container > section:not(.page-head):not(.grid),
+.admin-container > section.grid > * { min-width: 0; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.admin-container > section.panel,
+.admin-container > section.grid > .panel { margin-bottom: 0; }
+.admin-container h1 { font-size: 28px; }
+.admin-container h2 { font-size: 14px; margin-bottom: 10px; }
+.admin-container table { font-size: 11px; border-radius: 6px; }
+.admin-container th,
+.admin-container td { padding: 6px 7px; }
+.admin-container th { font-size: 10px; }
+.admin-container label { font-size: 11px; gap: 4px; }
+.admin-container input,
+.admin-container select { min-height: 32px; padding: 5px 7px; font-size: 12px; }
+.admin-container button,
+.admin-container .button { min-height: 32px; padding: 6px 9px; font-size: 12px; }
+.admin-container button.small { min-height: 28px; padding: 4px 7px; font-size: 11px; }
+.admin-container .stack { gap: 9px; }
+.admin-container .inline-form,
+.admin-container .wide-inline,
+.admin-container .match-form { gap: 7px; }
+.admin-container .facts { gap: 7px; margin: 10px 0; }
+
 @media (max-width: 900px) {
   .topbar { align-items: flex-start; flex-direction: column; padding: 16px; gap: 12px; }
   .metric-grid, .grid.two, .detail-grid, .cards, .facts.wide, .match-form, .chart-grid { grid-template-columns: 1fr; }
   .page-head { flex-direction: column; }
   .inline-form, .wide-inline, .filter-bar, .form-grid, .liquidity-form { grid-template-columns: 1fr; }
   .upgrade-dialog-head { align-items: flex-start; flex-direction: column; gap: 6px; }
+}
+
+@media (max-width: 1400px) {
+  .admin-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .admin-container { grid-template-columns: 1fr; }
 }

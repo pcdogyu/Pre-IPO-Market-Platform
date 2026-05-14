@@ -9,6 +9,44 @@ DB_PATH="${DB_PATH:-$STATE_DIR/preipo_demo.db}"
 BIN_PATH="$APP_DIR/preipo-market-platform"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEBUG="${DEBUG:-1}"
+GIT_RETRIES="${GIT_RETRIES:-3}"
+GIT_PULL_TIMEOUT="${GIT_PULL_TIMEOUT:-15s}"
+
+log() {
+  printf '[%s] %s\n' "$(date -Is)" "$*"
+}
+
+debug() {
+  if [[ "$DEBUG" == "1" || "$DEBUG" == "true" ]]; then
+    log "DEBUG: $*"
+  fi
+}
+
+git_pull_with_retry() {
+  local attempt=1
+  local delay=3
+  local status=0
+  while (( attempt <= GIT_RETRIES )); do
+    log "GitHub pull attempt $attempt/$GIT_RETRIES with timeout $GIT_PULL_TIMEOUT..."
+    if timeout "$GIT_PULL_TIMEOUT" git -C "$ROOT_DIR" pull --ff-only; then
+      log "GitHub pull succeeded."
+      return 0
+    fi
+    status=$?
+    log "GitHub pull failed with exit code $status."
+    debug "Git status after failed pull:"
+    git -C "$ROOT_DIR" status --short || true
+    if (( attempt == GIT_RETRIES )); then
+      log "GitHub pull failed after $GIT_RETRIES attempts."
+      return "$status"
+    fi
+    log "Retrying GitHub pull in ${delay}s..."
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+}
 
 command -v git >/dev/null 2>&1 || { echo "git is required"; exit 1; }
 command -v go >/dev/null 2>&1 || { echo "go is required"; exit 1; }
@@ -26,20 +64,45 @@ fi
 export GOPATH="${GOPATH:-$HOME/go}"
 export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
 export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
+export GIT_TERMINAL_PROMPT="${GIT_TERMINAL_PROMPT:-0}"
 mkdir -p "$GOMODCACHE" "$GOCACHE"
 
+log "Upgrade script started."
+debug "ROOT_DIR=$ROOT_DIR"
+debug "APP_DIR=$APP_DIR"
+debug "STATE_DIR=$STATE_DIR"
+debug "SERVICE_NAME=$SERVICE_NAME"
+debug "ADDR=$ADDR"
+debug "DB_PATH=$DB_PATH"
+debug "BIN_PATH=$BIN_PATH"
+debug "HOME=$HOME"
+debug "GOPATH=$GOPATH"
+debug "GOMODCACHE=$GOMODCACHE"
+debug "GOCACHE=$GOCACHE"
+debug "PATH=$PATH"
+debug "User=$(id -un 2>/dev/null || true), UID=$(id -u 2>/dev/null || true)"
+debug "git path=$(command -v git)"
+debug "go path=$(command -v go)"
+debug "git version=$(git --version)"
+debug "go version=$(go version)"
+debug "git branch=$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+debug "git commit=$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD 2>/dev/null || true)"
+debug "git remote origin=$(git -C "$ROOT_DIR" remote get-url origin 2>/dev/null || true)"
+debug "git status before upgrade:"
+git -C "$ROOT_DIR" status --short || true
+
 if [[ -n "$(git -C "$ROOT_DIR" status --porcelain)" ]]; then
-  echo "working tree is not clean; commit or stash local changes before upgrade"
+  log "working tree is not clean; commit or stash local changes before upgrade"
   git -C "$ROOT_DIR" status --short
   exit 1
 fi
 
-echo "Updating code..."
-timeout 15s git -C "$ROOT_DIR" pull --ff-only
+log "Updating code..."
+git_pull_with_retry
 
 cd "$ROOT_DIR"
 
-echo "Running tests..."
+log "Running tests..."
 go test ./...
 
 COMMIT_EPOCH="$(git -C "$ROOT_DIR" log -1 --format=%ct)"
@@ -55,15 +118,15 @@ LDFLAGS="$LDFLAGS -X 'pre-ipo-market-platform/internal/buildinfo.branchName=$BRA
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-echo "Building binary..."
+log "Building binary..."
 go build -trimpath -ldflags "$LDFLAGS" -o "$TMP_DIR/preipo-market-platform" "$ROOT_DIR"
 
-echo "Installing binary to $BIN_PATH..."
+log "Installing binary to $BIN_PATH..."
 sudo install -d -m 0755 "$APP_DIR"
 sudo install -d -m 0755 "$STATE_DIR"
 sudo install -m 0755 "$TMP_DIR/preipo-market-platform" "$BIN_PATH"
 
-echo "Writing systemd service $SERVICE_NAME..."
+log "Writing systemd service $SERVICE_NAME..."
 cat <<UNIT | sudo tee "/etc/systemd/system/$SERVICE_NAME.service" >/dev/null
 [Unit]
 Description=Pre-IPO Market Platform
@@ -88,13 +151,13 @@ UNIT
 sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
 
-echo "Starting service $SERVICE_NAME..."
+log "Starting service $SERVICE_NAME..."
 sudo systemctl restart "$SERVICE_NAME"
 
-echo "Service status:"
+log "Service status:"
 sudo systemctl --no-pager --full status "$SERVICE_NAME"
 
-echo "Last 30 service logs:"
+log "Last 30 service logs:"
 sudo journalctl -u "$SERVICE_NAME" -n 30 --no-pager
 
-echo "Upgrade complete: Code by Yuhao@jiansutech.com - $COMMIT_DATETIME - $COMMIT_ID - $BRANCH_NAME"
+log "Upgrade complete: Code by Yuhao@jiansutech.com - $COMMIT_DATETIME - $COMMIT_ID - $BRANCH_NAME"

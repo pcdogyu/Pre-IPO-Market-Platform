@@ -2179,7 +2179,7 @@ func (s *Store) AdvanceSubscriptionDocument(ctx context.Context, actorID, docume
 	if err := insertAudit(ctx, tx, actorID, "advance_subscription_document", "subscription_document", documentID, fmt.Sprintf("%s -> %s", status, next)); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, investorID, "Subscription document updated", fmt.Sprintf("%s认购#%d的%s已由%s更新为%s", dealName, subscriptionID, zhText(documentType), zhText(status), zhText(next))); err != nil {
+	if err := insertNotification(ctx, tx, investorID, "认购文件已更新", fmt.Sprintf("%s认购#%d的%s已由%s更新为%s", dealName, subscriptionID, zhText(documentType), zhText(status), zhText(next))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2430,10 +2430,10 @@ func (s *Store) CreateExecutionApproval(ctx context.Context, actorID int64, appr
 		return err
 	}
 	body := fmt.Sprintf("%s的%s审批已进入待处理", companyName, zhText(approval.ApprovalType))
-	if err := insertNotification(ctx, tx, buyerID, "Execution approval updated", body); err != nil {
+	if err := insertNotification(ctx, tx, buyerID, "执行审批已更新", body); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Execution approval updated", body); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "执行审批已更新", body); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2471,10 +2471,10 @@ func (s *Store) AdvanceExecutionApproval(ctx context.Context, actorID, approvalI
 		return err
 	}
 	body := fmt.Sprintf("%s的%s审批已由%s更新为%s", companyName, zhText(approvalType), zhText(status), zhText(next))
-	if err := insertNotification(ctx, tx, buyerID, "Execution approval updated", body); err != nil {
+	if err := insertNotification(ctx, tx, buyerID, "执行审批已更新", body); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Execution approval updated", body); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "执行审批已更新", body); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2572,10 +2572,10 @@ func (s *Store) CreateEscrowPayment(ctx context.Context, actorID int64, payment 
 		return err
 	}
 	body := fmt.Sprintf("%s托管付款%.2f当前为%s", companyName, payment.Amount, zhText(payment.Status))
-	if err := insertNotification(ctx, tx, buyerID, "Escrow payment updated", body); err != nil {
+	if err := insertNotification(ctx, tx, buyerID, "托管付款已更新", body); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Escrow payment updated", body); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "托管付款已更新", body); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -2616,10 +2616,10 @@ func (s *Store) AdvanceEscrowPayment(ctx context.Context, actorID, paymentID int
 		return err
 	}
 	body := fmt.Sprintf("%s托管付款%.2f已由%s更新为%s", companyName, amount, zhText(status), zhText(next))
-	if err := insertNotification(ctx, tx, buyerID, "Escrow payment updated", body); err != nil {
+	if err := insertNotification(ctx, tx, buyerID, "托管付款已更新", body); err != nil {
 		return err
 	}
-	if err := insertNotification(ctx, tx, sellerID, "Escrow payment updated", body); err != nil {
+	if err := insertNotification(ctx, tx, sellerID, "托管付款已更新", body); err != nil {
 		return err
 	}
 	return tx.Commit()

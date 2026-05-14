@@ -344,12 +344,12 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 		t.Fatalf("authenticate admin: %v", err)
 	}
 	if err := s.CreateCompany(context.Background(), admin.ID, domain.Company{
-		Name:                 "Atlas Robotics",
-		Industry:             "Automation",
+		Name:                 "阿特拉斯机器人",
+		Industry:             "自动化",
 		Valuation:            "$1.4B",
-		FundingRound:         "Series C",
+		FundingRound:         "C 轮",
 		SharePrice:           22.5,
-		Description:          "Robotics company",
+		Description:          "机器人公司",
 		TradableStatus:       "tradable",
 		TransferRestrictions: "ROFR",
 	}); err != nil {
@@ -362,12 +362,12 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	newCompany := companies[len(companies)-1]
 	if err := s.CreateDeal(context.Background(), admin.ID, domain.Deal{
 		CompanyID:       newCompany.ID,
-		Name:            "Atlas SPV I",
+		Name:            "阿特拉斯专项载体一期",
 		DealType:        "spv",
-		Structure:       "Single-company SPV",
+		Structure:       "单一公司专项载体",
 		MinSubscription: 25000,
 		TargetSize:      1000000,
-		FeeDescription:  "2% management fee",
+		FeeDescription:  "2% 管理费",
 	}); err != nil {
 		t.Fatalf("create deal: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authenticate investor: %v", err)
 	}
-	if err := s.CreateSupportTicket(context.Background(), investor.ID, "Need report", "Please upload Q2 report"); err != nil {
+	if err := s.CreateSupportTicket(context.Background(), investor.ID, "需要报告", "请上传二季度报告"); err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
 	tickets, err := s.SupportTickets(investor.ID, false)
@@ -394,7 +394,7 @@ func TestCreateCompanyDealAndSupportTicket(t *testing.T) {
 	}
 	var ticketID int64
 	for _, ticket := range tickets {
-		if ticket.Subject == "Need report" {
+		if ticket.Subject == "需要报告" {
 			ticketID = ticket.ID
 		}
 	}
@@ -640,10 +640,10 @@ func TestPostInvestmentAndOpsWorkflows(t *testing.T) {
 	if valuations[0].Valuation != "$5.0B" {
 		t.Fatalf("latest valuation got %s", valuations[0].Valuation)
 	}
-	if err := s.CreateExitEvent(context.Background(), admin.ID, domain.ExitEvent{CompanyID: 1, EventType: "Tender offer", Description: "Company sponsored window", Status: "confirmed", ExpectedDate: "2026-Q4"}); err != nil {
+	if err := s.CreateExitEvent(context.Background(), admin.ID, domain.ExitEvent{CompanyID: 1, EventType: "要约收购", Description: "公司发起的流动性窗口", Status: "confirmed", ExpectedDate: "2026-Q4"}); err != nil {
 		t.Fatalf("create exit event: %v", err)
 	}
-	if err := s.CreateDistribution(context.Background(), admin.ID, domain.Distribution{UserID: 2, Amount: 1200, Status: "pending", TaxDocument: "K-1 draft"}); err != nil {
+	if err := s.CreateDistribution(context.Background(), admin.ID, domain.Distribution{UserID: 2, Amount: 1200, Status: "pending", TaxDocument: "K-1 草稿"}); err != nil {
 		t.Fatalf("create distribution: %v", err)
 	}
 	distributions, err := s.Distributions(0)
@@ -998,7 +998,7 @@ func TestExecutionApprovalWorkflow(t *testing.T) {
 		TransactionID: 1,
 		ApprovalType:  "company_approval",
 		DueDate:       "2026-07-15",
-		Note:          "Board consent request",
+		Note:          "董事会同意申请",
 	}); err != nil {
 		t.Fatalf("create execution approval: %v", err)
 	}
@@ -1036,7 +1036,7 @@ func TestExecutionApprovalWorkflow(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Execution approval updated" {
+		if notification.Title == "执行审批已更新" {
 			return
 		}
 	}
@@ -1106,7 +1106,7 @@ func TestSubscriptionDocumentWorkflow(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Subscription document updated" {
+		if notification.Title == "认购文件已更新" {
 			return
 		}
 	}
@@ -1128,7 +1128,7 @@ func TestEscrowPaymentWorkflow(t *testing.T) {
 		Amount:        33600,
 		Status:        domain.EscrowInstructionSent,
 		Reference:     "ESCROW-TEST-001",
-		Note:          "Wire instruction test",
+		Note:          "电汇指令测试",
 	}
 	if err := s.CreateEscrowPayment(context.Background(), admin.ID, payment); err != nil {
 		t.Fatalf("create escrow payment: %v", err)
@@ -1174,7 +1174,7 @@ func TestEscrowPaymentWorkflow(t *testing.T) {
 		t.Fatalf("notifications: %v", err)
 	}
 	for _, notification := range notifications {
-		if notification.Title == "Escrow payment updated" {
+		if notification.Title == "托管付款已更新" {
 			return
 		}
 	}

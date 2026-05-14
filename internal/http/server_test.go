@@ -212,14 +212,14 @@ func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 	cookie := loginCookie(t, app, "admin")
 
 	companyForm := url.Values{
-		"name":                  {"Atlas Robotics"},
-		"industry":              {"Automation"},
+		"name":                  {"阿特拉斯机器人"},
+		"industry":              {"自动化"},
 		"valuation":             {"$1.4B"},
-		"funding_round":         {"Series C"},
+		"funding_round":         {"C 轮"},
 		"share_price":           {"22.5"},
 		"tradable_status":       {"tradable"},
 		"transfer_restrictions": {"ROFR"},
-		"description":           {"Robotics company"},
+		"description":           {"机器人公司"},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/admin/companies/create", strings.NewReader(companyForm.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -232,12 +232,12 @@ func TestAdminCanCreateCompanyAndDeal(t *testing.T) {
 
 	dealForm := url.Values{
 		"company_id":       {"1"},
-		"name":             {"New SPV"},
+		"name":             {"新增专项载体"},
 		"deal_type":        {"spv"},
-		"structure":        {"Single company SPV"},
+		"structure":        {"单一公司专项载体"},
 		"min_subscription": {"25000"},
 		"target_size":      {"1000000"},
-		"fee_description":  {"2% management fee"},
+		"fee_description":  {"2% 管理费"},
 	}
 	req = httptest.NewRequest(http.MethodPost, "/admin/deals/create", strings.NewReader(dealForm.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -408,8 +408,8 @@ func TestAdminCanManagePostInvestmentAndOps(t *testing.T) {
 		form url.Values
 	}{
 		{"/admin/valuations/create", url.Values{"company_id": {"1"}, "valuation": {"$5.0B"}, "share_price": {"45"}, "as_of_date": {"2026-06-30"}}},
-		{"/admin/exits/create", url.Values{"company_id": {"1"}, "event_type": {"Tender offer"}, "status": {"confirmed"}, "expected_date": {"2026-Q4"}, "description": {"Company sponsored liquidity"}}},
-		{"/admin/distributions/create", url.Values{"user_id": {"2"}, "amount": {"1200"}, "status": {"pending"}, "tax_document": {"K-1 draft"}}},
+		{"/admin/exits/create", url.Values{"company_id": {"1"}, "event_type": {"要约收购"}, "status": {"confirmed"}, "expected_date": {"2026-Q4"}, "description": {"公司发起的流动性窗口"}}},
+		{"/admin/distributions/create", url.Values{"user_id": {"2"}, "amount": {"1200"}, "status": {"pending"}, "tax_document": {"K-1 草稿"}}},
 		{"/admin/reports/create", url.Values{"user_id": {"2"}, "report_type": {"portfolio"}, "title": {"二季度组合报告"}, "period": {"2026-Q2"}, "status": {"available"}}},
 		{"/admin/risks/create", url.Values{"severity": {"high"}, "subject": {"集中度限制"}, "note": {"复核敞口"}}},
 	}
@@ -636,7 +636,7 @@ func TestAdminCanManageExecutionDocuments(t *testing.T) {
 func TestAdminCanManageExecutionApprovals(t *testing.T) {
 	app := testApp(t)
 	adminCookie := loginCookie(t, app, "admin")
-	form := url.Values{"transaction_id": {"1"}, "approval_type": {"company_approval"}, "due_date": {"2026-07-15"}, "note": {"Board consent request"}}
+	form := url.Values{"transaction_id": {"1"}, "approval_type": {"company_approval"}, "due_date": {"2026-07-15"}, "note": {"董事会同意申请"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/approvals/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(adminCookie)
@@ -717,7 +717,7 @@ func TestAdminCanManageEscrowPayments(t *testing.T) {
 		"amount":         {"33600"},
 		"status":         {"instruction_sent"},
 		"reference":      {"ESCROW-HTTP-001"},
-		"note":           {"HTTP escrow test"},
+		"note":           {"HTTP 托管测试"},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/admin/escrow-payments/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

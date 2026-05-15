@@ -20,6 +20,7 @@ h1 { font-size: 32px; margin-bottom: 8px; }
 h2 { font-size: 18px; margin-bottom: 14px; }
 button, .button { border: 0; border-radius: 6px; background: var(--brand); color: white; padding: 10px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; }
 button:hover, .button:hover { background: var(--brand-dark); }
+button:disabled, button:disabled:hover, .button.disabled, .button.disabled:hover { background: #d0d5dd; color: #667085; cursor: not-allowed; }
 .button.secondary { background: #e6f4f1; color: var(--brand-dark); }
 button.small { min-height: 32px; padding: 6px 10px; font-size: 13px; }
 button.danger { background: var(--danger); }
@@ -27,6 +28,7 @@ button.danger:hover { background: #7a271a; }
 button.nav-button { min-height: 0; padding: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; }
 button.nav-button:hover { background: transparent; color: var(--ink); }
 input, select { width: 100%; min-height: 40px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: white; color: var(--ink); }
+input:disabled, select:disabled { background: #f2f4f7; color: #98a2b3; cursor: not-allowed; }
 label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
 table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
@@ -113,6 +115,7 @@ dd { margin: 0; font-weight: 800; }
 .chart-dot { fill: var(--surface); stroke: var(--brand); stroke-width: 3; }
 .chart-dot.secondary { stroke: var(--accent); }
 .alert { padding: 12px 14px; background: #fff4ed; color: var(--danger); border: 1px solid #ffcfb9; border-radius: 8px; margin-bottom: 16px; }
+.notice { padding: 12px 14px; background: #e6f4f1; color: var(--brand-dark); border: 1px solid #b7e4dc; border-radius: 8px; margin-bottom: 16px; font-weight: 800; }
 .login-page { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #e8f3f1, #f8fafc 45%, #fff7ed); }
 .login-shell { width: min(440px, calc(100% - 32px)); }
 .login-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 28px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12); }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -534,7 +535,7 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 	sellOrders, marketPages["sell_orders"] = paginateMarketItems(r, "sell_page", "market-sell-orders", sellOrders, 10)
 	buyInterests, marketPages["buy_interests"] = paginateMarketItems(r, "buy_page", "market-buy-interests", buyInterests, 10)
 	openTransactions := filterOpenTransactions(transactions)
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, OpenTransactions: openTransactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, MarketPages: marketPages, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, OpenTransactions: openTransactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, MarketPages: marketPages, Error: r.URL.Query().Get("error"), Flash: flashMessage(user.Language, r.URL.Query().Get("success"))})
 }
 
 func (s *Server) createLiquidityRequest(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -562,15 +563,15 @@ func (s *Server) createLiquidityRequest(w http.ResponseWriter, r *http.Request, 
 	if request.Window == "" {
 		request.Window = "2026-Q3 季度窗口"
 	}
-	if err := s.store.CreateLiquidityRequest(r.Context(), user.ID, request); err != nil {
-		http.Redirect(w, r, "/market/orders?error="+urlSafe(err.Error()), http.StatusSeeOther)
-		return
-	}
 	redirect := "/market/orders"
 	if companyID > 0 {
 		redirect = fmt.Sprintf("/market/orders?company_id=%d", companyID)
 	}
-	http.Redirect(w, r, redirect, http.StatusSeeOther)
+	if err := s.store.CreateLiquidityRequest(r.Context(), user.ID, request); err != nil {
+		http.Redirect(w, r, addErrorParam(redirect, err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, addSuccessParam(redirect, "liquidity_submitted"), http.StatusSeeOther)
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -681,7 +682,7 @@ func (s *Server) createNegotiation(w http.ResponseWriter, r *http.Request, user 
 		redirect = "/market/orders"
 	}
 	if err := s.store.CreateNegotiation(r.Context(), user, transactionID, offerPrice, shares, note); err != nil {
-		http.Redirect(w, r, redirect+"?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		http.Redirect(w, r, addErrorParam(redirect, err.Error()), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
@@ -1559,6 +1560,34 @@ func selectedCompanyFromRequest(r *http.Request, companies []domain.Company) (in
 		}
 	}
 	return 0, domain.Company{}
+}
+
+func addErrorParam(rawURL, message string) string {
+	return addQueryParam(rawURL, "error", message)
+}
+
+func addSuccessParam(rawURL, message string) string {
+	return addQueryParam(rawURL, "success", message)
+}
+
+func addQueryParam(rawURL, key, value string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "/market/orders?" + key + "=" + urlSafe(value)
+	}
+	values := parsed.Query()
+	values.Set(key, value)
+	parsed.RawQuery = values.Encode()
+	return parsed.String()
+}
+
+func flashMessage(lang, code string) string {
+	switch code {
+	case "liquidity_submitted":
+		return i18n.T(lang, "flash.liquidity_submitted")
+	default:
+		return ""
+	}
 }
 
 func filterSellOrdersByCompany(orders []domain.SellOrder, companyID int64) []domain.SellOrder {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -86,6 +87,7 @@ type pageData struct {
 	PrevPageURL       string
 	NextPageURL       string
 	DashboardPages    map[string]paginationGroup
+	MarketPages       map[string]paginationGroup
 	Industries        []string
 	SearchQuery       string
 	SelectedIndustry  string
@@ -376,7 +378,9 @@ func (s *Server) companies(w http.ResponseWriter, r *http.Request, user domain.U
 	sortBy := strings.TrimSpace(r.URL.Query().Get("sort"))
 	industries := companyIndustries(companies)
 	companies = filterAndSortCompanies(companies, q, industry, sortBy)
-	data := pageData{Title: "Companies", User: user, Lang: user.Language, Companies: companies, WatchlistMap: watched, Industries: industries, SearchQuery: q, SelectedIndustry: industry, Sort: sortBy}
+	page := pageFromRequest(r, "page")
+	companies, page, totalPages := paginateCompanies(companies, page, 9)
+	data := pageData{Title: "Companies", User: user, Lang: user.Language, Companies: companies, WatchlistMap: watched, Industries: industries, SearchQuery: q, SelectedIndustry: industry, Sort: sortBy, Page: page, TotalPages: totalPages, PageLinks: companyPageLinks(r, page, totalPages), PrevPageURL: companyPageURL(r, page-1), NextPageURL: companyPageURL(r, page+1)}
 	if err != nil {
 		data.Error = err.Error()
 	}
@@ -527,8 +531,11 @@ func (s *Server) market(w http.ResponseWriter, r *http.Request, user domain.User
 		"buy_orders":   len(buyInterests),
 		"transactions": len(transactions),
 	}
+	marketPages := map[string]paginationGroup{}
+	sellOrders, marketPages["sell_orders"] = paginateMarketItems(r, "sell_page", "market-sell-orders", sellOrders, 10)
+	buyInterests, marketPages["buy_interests"] = paginateMarketItems(r, "buy_page", "market-buy-interests", buyInterests, 10)
 	openTransactions := filterOpenTransactions(transactions)
-	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, OpenTransactions: openTransactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, Error: r.URL.Query().Get("error")})
+	s.render(w, r, "market.html", pageData{Title: "Market", User: user, Lang: user.Language, Companies: companies, SelectedCompany: selectedCompany, SelectedCompanyID: selectedCompanyID, SellOrders: sellOrders, BuyInterests: buyInterests, Transactions: transactions, OpenTransactions: openTransactions, Negotiations: negotiations, Approvals: approvals, EscrowPayments: escrowPayments, LiquidityRequests: liquidityRequests, Stats: stats, MarketPages: marketPages, Error: r.URL.Query().Get("error"), Flash: flashMessage(user.Language, r.URL.Query().Get("success"))})
 }
 
 func (s *Server) createLiquidityRequest(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -556,15 +563,15 @@ func (s *Server) createLiquidityRequest(w http.ResponseWriter, r *http.Request, 
 	if request.Window == "" {
 		request.Window = "2026-Q3 季度窗口"
 	}
-	if err := s.store.CreateLiquidityRequest(r.Context(), user.ID, request); err != nil {
-		http.Redirect(w, r, "/market/orders?error="+urlSafe(err.Error()), http.StatusSeeOther)
-		return
-	}
 	redirect := "/market/orders"
 	if companyID > 0 {
 		redirect = fmt.Sprintf("/market/orders?company_id=%d", companyID)
 	}
-	http.Redirect(w, r, redirect, http.StatusSeeOther)
+	if err := s.store.CreateLiquidityRequest(r.Context(), user.ID, request); err != nil {
+		http.Redirect(w, r, addErrorParam(redirect, err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, addSuccessParam(redirect, "liquidity_submitted"), http.StatusSeeOther)
 }
 
 func (s *Server) createSellOrder(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -675,7 +682,7 @@ func (s *Server) createNegotiation(w http.ResponseWriter, r *http.Request, user 
 		redirect = "/market/orders"
 	}
 	if err := s.store.CreateNegotiation(r.Context(), user, transactionID, offerPrice, shares, note); err != nil {
-		http.Redirect(w, r, redirect+"?error="+urlSafe(err.Error()), http.StatusSeeOther)
+		http.Redirect(w, r, addErrorParam(redirect, err.Error()), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
@@ -1555,6 +1562,34 @@ func selectedCompanyFromRequest(r *http.Request, companies []domain.Company) (in
 	return 0, domain.Company{}
 }
 
+func addErrorParam(rawURL, message string) string {
+	return addQueryParam(rawURL, "error", message)
+}
+
+func addSuccessParam(rawURL, message string) string {
+	return addQueryParam(rawURL, "success", message)
+}
+
+func addQueryParam(rawURL, key, value string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "/market/orders?" + key + "=" + urlSafe(value)
+	}
+	values := parsed.Query()
+	values.Set(key, value)
+	parsed.RawQuery = values.Encode()
+	return parsed.String()
+}
+
+func flashMessage(lang, code string) string {
+	switch code {
+	case "liquidity_submitted":
+		return i18n.T(lang, "flash.liquidity_submitted")
+	default:
+		return ""
+	}
+}
+
 func filterSellOrdersByCompany(orders []domain.SellOrder, companyID int64) []domain.SellOrder {
 	filtered := make([]domain.SellOrder, 0, len(orders))
 	for _, order := range orders {
@@ -1720,6 +1755,63 @@ func dashboardPageURL(r *http.Request, param string, page int, anchor string) st
 	return url
 }
 
+func paginateMarketItems[T any](r *http.Request, param, anchor string, items []T, perPage int) ([]T, paginationGroup) {
+	if perPage <= 0 {
+		perPage = 10
+	}
+	totalPages := (len(items) + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	page := pageFromRequest(r, param)
+	if page > totalPages {
+		page = totalPages
+	}
+	group := paginationGroup{
+		Page:        page,
+		TotalPages:  totalPages,
+		PrevPageURL: marketPageURL(r, param, page-1, anchor),
+		NextPageURL: marketPageURL(r, param, page+1, anchor),
+	}
+	if totalPages > 1 {
+		group.Links = marketPageLinks(r, param, anchor, page, totalPages)
+	}
+	start := (page - 1) * perPage
+	if start >= len(items) {
+		return nil, group
+	}
+	end := start + perPage
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end], group
+}
+
+func marketPageLinks(r *http.Request, param, anchor string, currentPage, totalPages int) []paginationLink {
+	links := make([]paginationLink, 0, totalPages)
+	for page := 1; page <= totalPages; page++ {
+		links = append(links, paginationLink{
+			Label:  strconv.Itoa(page),
+			URL:    marketPageURL(r, param, page, anchor),
+			Active: page == currentPage,
+		})
+	}
+	return links
+}
+
+func marketPageURL(r *http.Request, param string, page int, anchor string) string {
+	if page < 1 {
+		page = 1
+	}
+	values := r.URL.Query()
+	values.Set(param, strconv.Itoa(page))
+	url := "/market/orders?" + values.Encode()
+	if anchor != "" {
+		url += "#" + anchor
+	}
+	return url
+}
+
 func filterAndSortCompanies(companies []domain.Company, q, industry, sortBy string) []domain.Company {
 	q = strings.ToLower(strings.TrimSpace(q))
 	filtered := make([]domain.Company, 0, len(companies))
@@ -1761,12 +1853,62 @@ func filterDealsByCompany(deals []domain.Deal, companyID int64) []domain.Deal {
 	return filtered
 }
 
-func dealPageFromRequest(r *http.Request) int {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+func pageFromRequest(r *http.Request, param string) int {
+	page, _ := strconv.Atoi(r.URL.Query().Get(param))
 	if page < 1 {
 		return 1
 	}
 	return page
+}
+
+func paginateCompanies(companies []domain.Company, page, perPage int) ([]domain.Company, int, int) {
+	if perPage <= 0 {
+		perPage = 9
+	}
+	totalPages := (len(companies) + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * perPage
+	if start >= len(companies) {
+		return nil, page, totalPages
+	}
+	end := start + perPage
+	if end > len(companies) {
+		end = len(companies)
+	}
+	return companies[start:end], page, totalPages
+}
+
+func companyPageLinks(r *http.Request, currentPage, totalPages int) []paginationLink {
+	links := make([]paginationLink, 0, totalPages)
+	for page := 1; page <= totalPages; page++ {
+		links = append(links, paginationLink{
+			Label:  strconv.Itoa(page),
+			URL:    companyPageURL(r, page),
+			Active: page == currentPage,
+		})
+	}
+	return links
+}
+
+func companyPageURL(r *http.Request, page int) string {
+	if page < 1 {
+		page = 1
+	}
+	values := r.URL.Query()
+	values.Set("page", strconv.Itoa(page))
+	return "/companies?" + values.Encode()
+}
+
+func dealPageFromRequest(r *http.Request) int {
+	return pageFromRequest(r, "page")
 }
 
 func paginateDeals(deals []domain.Deal, page, perPage int) ([]domain.Deal, int, int) {

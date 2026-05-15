@@ -21,6 +21,7 @@
       </article>
       {{else}}<p>{{t .Lang "empty"}}</p>{{end}}
     </section>
+    {{if gt .TotalPages 1}}<nav class="pagination" aria-label="公司分页">{{if gt .Page 1}}<a class="button secondary" href="{{.PrevPageURL}}">{{t .Lang "label.prev"}}</a>{{end}}{{range .PageLinks}}<a class="page-link {{if .Active}}active{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}{{if lt .Page .TotalPages}}<a class="button secondary" href="{{.NextPageURL}}">{{t .Lang "label.next"}}</a>{{end}}</nav>{{end}}
   </main>
   {{template "footer.html" .}}
 </body>

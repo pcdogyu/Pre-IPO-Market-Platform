@@ -98,7 +98,7 @@ func TestUsersCanCancelOpenOrders(t *testing.T) {
 		t.Fatalf("cancel sell order status got %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/market/orders", nil)
+	req = httptest.NewRequest(http.MethodGet, "/market/orders?sell_page=999", nil)
 	req.AddCookie(sellerCookie)
 	rec = httptest.NewRecorder()
 	app.ServeHTTP(rec, req)
@@ -380,6 +380,42 @@ func TestDashboardPaginatesLongSections(t *testing.T) {
 	}
 }
 
+func TestCompaniesPagePaginatesNineCompanies(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	req := httptest.NewRequest(http.MethodGet, "/companies?sort=name", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("companies status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if cardCount := strings.Count(body, `<article class="card">`); cardCount != 9 {
+		t.Fatalf("companies card count got %d, want 9", cardCount)
+	}
+	for _, want := range []string{`page=2`, `sort=name`, "下一页"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("companies pagination should render %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/companies?sort=name&page=2", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("companies page 2 status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	if cardCount := strings.Count(body, `<article class="card">`); cardCount != 9 {
+		t.Fatalf("companies page 2 card count got %d, want 9", cardCount)
+	}
+	if !strings.Contains(body, `page=1`) || !strings.Contains(body, "上一页") {
+		t.Fatal("companies page 2 should render previous pagination link")
+	}
+}
+
 func TestCompanyPageRendersMarketValueAndSharePriceCharts(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor")
@@ -457,6 +493,42 @@ func TestMarketAndDealsCanFilterByCompany(t *testing.T) {
 	}
 }
 
+func TestMarketOrdersPaginatesBuyAndSellRecords(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "admin")
+	req := httptest.NewRequest(http.MethodGet, "/market/orders", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if rows := countRowsBetween(body, `<div id="market-sell-orders">`, `<div id="market-buy-interests">`); rows != 10 {
+		t.Fatalf("sell order rows got %d, want 10", rows)
+	}
+	if rows := countRowsBetween(body, `<div id="market-buy-interests">`, `<section><h2>`); rows != 10 {
+		t.Fatalf("buy interest rows got %d, want 10", rows)
+	}
+	for _, want := range []string{`sell_page=2`, `buy_page=2`, `#market-sell-orders`, `#market-buy-interests`, "下一页"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("market pagination should render %q", want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/market/orders?sell_page=2&buy_page=2", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("market page 2 status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	body = rec.Body.String()
+	if !strings.Contains(body, `sell_page=1`) || !strings.Contains(body, `buy_page=1`) || !strings.Contains(body, "上一页") {
+		t.Fatal("market page 2 should render previous pagination links")
+	}
+}
+
 func TestMarketShowsEmptyNegotiationStateForCompanyWithoutTransactions(t *testing.T) {
 	app := testApp(t)
 	cookie := loginCookie(t, app, "investor")
@@ -468,11 +540,24 @@ func TestMarketShowsEmptyNegotiationStateForCompanyWithoutTransactions(t *testin
 		t.Fatalf("market status got %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"暂无可议价交易", `select name="transaction_id" disabled`, `value="/market/orders?company_id=5"`} {
+	for _, want := range []string{"暂无可议价交易", `select name="transaction_id" disabled`, `input name="offer_price" type="number" min="0.01" step="0.01" value="42.00" required disabled`, `<button disabled>暂无可议价交易</button>`, `value="/market/orders?company_id=5"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("market page should render %q", want)
 		}
 	}
+}
+
+func countRowsBetween(body, startMarker, endMarker string) int {
+	start := strings.Index(body, startMarker)
+	if start < 0 {
+		return 0
+	}
+	section := body[start:]
+	end := strings.Index(section, endMarker)
+	if end >= 0 {
+		section = section[:end]
+	}
+	return strings.Count(section, "<tr><td>")
 }
 
 func TestCompanyPageRendersFinancialReports(t *testing.T) {
@@ -560,6 +645,20 @@ func TestAssetInformationIntentAndLiquidityHTTP(t *testing.T) {
 	app.ServeHTTP(rec, req)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("liquidity submit status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	liquidityLocation := rec.Header().Get("Location")
+	if !strings.Contains(liquidityLocation, "company_id=1") || !strings.Contains(liquidityLocation, "success=liquidity_submitted") {
+		t.Fatalf("liquidity redirect should preserve company and show success, got %q", liquidityLocation)
+	}
+	req = httptest.NewRequest(http.MethodGet, liquidityLocation, nil)
+	req.AddCookie(investorCookie)
+	rec = httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("liquidity success page status got %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "流动性意向已提交") {
+		t.Fatal("market page should render liquidity success flash")
 	}
 
 	adminCookie := loginCookie(t, app, "admin")
@@ -806,6 +905,27 @@ func TestUserCanCreateNegotiation(t *testing.T) {
 	app.ServeHTTP(rec, req)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("negotiation status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
+func TestNegotiationErrorRedirectPreservesCompanyFilter(t *testing.T) {
+	app := testApp(t)
+	cookie := loginCookie(t, app, "investor")
+	form := url.Values{"transaction_id": {""}, "offer_price": {"41.75"}, "shares": {"800"}, "redirect": {"/market/orders?company_id=8"}}
+	req := httptest.NewRequest(http.MethodPost, "/negotiations/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("negotiation status got %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	location := rec.Header().Get("Location")
+	if !strings.Contains(location, "/market/orders?") || !strings.Contains(location, "company_id=8") || !strings.Contains(location, "error=") {
+		t.Fatalf("redirect should preserve company filter and add error, got %q", location)
+	}
+	if strings.Contains(location, "company_id=8?error") {
+		t.Fatalf("redirect should not append a second question mark, got %q", location)
 	}
 }
 
